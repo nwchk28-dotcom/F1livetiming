@@ -1,0 +1,6 @@
+import {describe,expect,it} from 'vitest'
+import type {DriverTiming,StandingEntry} from '../types'
+import {projectConstructors,projectDriverStandings} from './scoring'
+const standings:StandingEntry[]=[{id:'a',name:'Driver A',code:'AAA',team:'Team X',points:100,wins:2,color:'#f00'},{id:'b',name:'Driver B',code:'BBB',team:'Team X',points:90,wins:1,color:'#f00'}]
+const timing:DriverTiming[]=standings.map((s,i)=>({position:i+1,previousPosition:i+1,gridPosition:i+1,number:String(i+1),code:s.code,fullName:s.name,team:s.team,teamColor:s.color,bestLap:'—',lastLap:'—',gap:'—',interval:'—',sectors:[],tyre:{compound:'SOFT',laps:1},pitStops:0,status:'RUNNING'}))
+describe('championship projection',()=>{it('adds race points',()=>expect(projectDriverStandings(standings,timing)[0].points).toBe(125));it('uses sprint points',()=>expect(projectDriverStandings(standings,timing,true)[0].projectedGain).toBe(8));it('does not award OUT drivers',()=>expect(projectDriverStandings(standings,[{...timing[0],status:'OUT'},timing[1]])[0].projectedGain).toBe(18));it('combines constructors',()=>expect(projectConstructors([{id:'x',name:'Team X',code:'TEX',team:'Team X',points:200,wins:2,color:'#f00'}],projectDriverStandings(standings,timing))[0].projectedGain).toBe(43))})
