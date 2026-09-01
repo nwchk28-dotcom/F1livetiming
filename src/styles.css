@@ -10,3 +10,13 @@
 @media(min-width:901px){.topbar{grid-template-columns:270px 1fr auto auto}}
 .brand small{font-size:8px;letter-spacing:1.45px;white-space:nowrap}
 @media(max-width:560px){.brand small{font-size:7px;letter-spacing:.75px}}
+
+/* Refresh feedback and data freshness */
+.tab-actions button:disabled,.primary-action:disabled{cursor:wait;opacity:.72}
+.tab-actions button:hover:not(:disabled),.primary-action:hover:not(:disabled){border-color:#707b88}
+.tab-actions .action-label{display:inline}
+.spinning{animation:refresh-spin .7s linear infinite}
+.idle-last-updated{margin-top:10px;color:#68717c;font:600 9px Inter;letter-spacing:.5px}
+@keyframes refresh-spin{to{transform:rotate(360deg)}}
+@media(max-width:900px){.tab-actions{gap:8px}.tab-actions .last-updated{display:flex;white-space:nowrap}}
+@media(max-width:560px){.tab-actions button{padding:7px}.tab-actions .action-label{display:none}.tab-actions .last-updated{font-size:8px}.view-tabs>button{padding:0 10px}}
