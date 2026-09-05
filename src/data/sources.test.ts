@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest'
-import {emptySession,mergeSignalRPacket} from './sources'
+import {emptySession,mergeSignalRCoreFrame,mergeSignalRPacket} from './sources'
 
 describe('SignalR packets',()=>{
   it('hydrates the current qualifying session from the subscription snapshot',()=>{
@@ -18,5 +18,11 @@ describe('SignalR packets',()=>{
   it('continues to apply incremental feed messages',()=>{
     const state=mergeSignalRPacket(emptySession(),{M:[{M:'feed',A:['SessionInfo',{Name:'Race'}]},{M:'feed',A:['SessionData',{StatusSeries:{'1':{SessionStatus:'Started'}}}]}]})
     expect(state).toMatchObject({sessionName:'Race',phase:'RACE',status:'STARTED'})
+  })
+
+  it('hydrates and updates from SignalR Core records',()=>{
+    const rs='\x1e'
+    const state=mergeSignalRCoreFrame(emptySession(),JSON.stringify({type:3,invocationId:'0',result:{SessionInfo:{Name:'Qualifying',Meeting:{Name:'Italian Grand Prix'}},SessionData:{StatusSeries:{'0':{SessionStatus:'Started'}}}}})+rs+JSON.stringify({type:1,target:'feed',arguments:['ExtrapolatedClock',{Remaining:'00:09:54'}]})+rs)
+    expect(state).toMatchObject({sessionName:'Qualifying',meetingName:'Italian Grand Prix',status:'STARTED',timeRemaining:'00:09:54'})
   })
 })

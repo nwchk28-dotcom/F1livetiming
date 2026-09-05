@@ -1,6 +1,6 @@
 import type { ArchiveSource, ConnectionState, DriverTiming, LiveTimingSource, RaceWeekend, ScheduleSource, SessionState, StandingEntry, StandingsSource } from '../types'
 
-const CACHE_TTL=5*60*1000, API='https://api.jolpi.ca/ergast/f1', F1_STATIC='https://livetiming.formula1.com/static'
+const CACHE_TTL=5*60*1000, API='https://api.jolpi.ca/ergast/f1', F1_STATIC='https://livetiming.formula1.com/static', LIVE_PROXY='wss://pitwall-live-proxy.nwchk28-f1.workers.dev/live'
 type CacheRecord<T>={at:number;data:T}
 async function cachedJson<T>(key:string,url:string,ttl=CACHE_TTL):Promise<T>{try{const c=JSON.parse(localStorage.getItem(key)??'null') as CacheRecord<T>|null;if(c&&Date.now()-c.at<ttl)return c.data}catch{/* ignore */}const r=await fetch(url);if(!r.ok)throw new Error(`HTTP ${r.status}`);const data=await r.json() as T;try{localStorage.setItem(key,JSON.stringify({at:Date.now(),data}))}catch{/* ignore */}return data}
 
@@ -24,8 +24,17 @@ export class F1ArchiveSource implements ArchiveSource{
 const topics=['Heartbeat','ExtrapolatedClock','TimingStats','TimingAppData','TrackStatus','DriverList','RaceControlMessages','SessionInfo','SessionData','LapCount','TimingData']
 export class F1SignalRSource implements LiveTimingSource{
   private stopped=false;private socket?:WebSocket
-  async connect(onState:(s:SessionState)=>void,onConnection:(s:ConnectionState)=>void){this.stopped=false;let attempt=0;const run=async()=>{while(!this.stopped){try{attempt++;onConnection({mode:'CONNECTING',attempt,message:'F1 Live Timingへ接続中'});const cd=JSON.stringify([{name:'Streaming'}]),nurl=new URL('https://livetiming.formula1.com/signalr/negotiate');nurl.searchParams.set('clientProtocol','1.5');nurl.searchParams.set('connectionData',cd);const n=await fetch(nurl).then(r=>{if(!r.ok)throw new Error();return r.json()}) as{ConnectionToken:string};const ws=new URL('wss://livetiming.formula1.com/signalr/connect');ws.searchParams.set('transport','webSockets');ws.searchParams.set('clientProtocol','1.5');ws.searchParams.set('connectionToken',n.ConnectionToken);ws.searchParams.set('connectionData',cd);await this.openSocket(ws.toString(),onState,onConnection,attempt);attempt=0}catch{if(this.stopped)break;onConnection({mode:'OFFLINE',attempt,message:'ライブセッション待機中'});await new Promise(r=>setTimeout(r,Math.min(30000,1000*2**Math.min(attempt,5))))}}};void run();return()=>{this.stopped=true;this.socket?.close()}}
-  private openSocket(url:string,onState:(s:SessionState)=>void,onConnection:(s:ConnectionState)=>void,attempt:number){return new Promise<void>((resolve,reject)=>{const socket=this.socket=new WebSocket(url);let settled=false,state=emptySession();const timeout=setTimeout(()=>{socket.close();reject(new Error())},8000);socket.onopen=()=>{clearTimeout(timeout);onConnection({mode:'LIVE',attempt,message:'ライブフィード接続中'});socket.send(JSON.stringify({H:'Streaming',M:'Subscribe',A:[topics],I:1}))};socket.onmessage=e=>{try{const packet=JSON.parse(String(e.data));const merged=mergeSignalRPacket(state,packet);if(merged!==state){state=merged;onState(state);onConnection({mode:'LIVE',attempt:0,message:'ライブフィード接続中',lastUpdate:new Date().toISOString()})}}catch{/* partial */}};socket.onerror=()=>{if(!settled){settled=true;clearTimeout(timeout);reject(new Error())}};socket.onclose=()=>{if(!settled){settled=true;clearTimeout(timeout);this.stopped?resolve():reject(new Error())}}})}
+  async connect(onState:(s:SessionState)=>void,onConnection:(s:ConnectionState)=>void){this.stopped=false;let attempt=0;const run=async()=>{while(!this.stopped){try{attempt++;onConnection({mode:'CONNECTING',attempt,message:'F1 Live Timingへ接続中'});await this.openSocket(LIVE_PROXY,onState,onConnection,attempt);attempt=0}catch{if(this.stopped)break;onConnection({mode:'OFFLINE',attempt,message:'ライブ配信へ再接続中'});await new Promise(r=>setTimeout(r,Math.min(30000,1000*2**Math.min(attempt,5))))}}};void run();return()=>{this.stopped=true;this.socket?.close()}}
+  private openSocket(url:string,onState:(s:SessionState)=>void,onConnection:(s:ConnectionState)=>void,attempt:number){return new Promise<void>((resolve,reject)=>{const socket=this.socket=new WebSocket(url);let settled=false,state=emptySession();const timeout=setTimeout(()=>{socket.close();reject(new Error())},12000);socket.onopen=()=>{clearTimeout(timeout);onConnection({mode:'LIVE',attempt,message:'ライブフィード接続中'})};socket.onmessage=e=>{try{const merged=mergeSignalRCoreFrame(state,String(e.data));if(merged!==state){state=merged;onState(state);onConnection({mode:'LIVE',attempt:0,message:'ライブフィード接続中',lastUpdate:new Date().toISOString()})}}catch{/* partial */}};socket.onerror=()=>{if(!settled){settled=true;clearTimeout(timeout);reject(new Error())}};socket.onclose=()=>{if(!settled){settled=true;clearTimeout(timeout);this.stopped?resolve():reject(new Error())}}})}
+}
+
+export function mergeSignalRCoreFrame(state:SessionState,raw:string):SessionState{
+  let next=state
+  for(const part of raw.split('\x1e')){if(!part.trim())continue;let message:unknown;try{message=JSON.parse(part)}catch{continue}if(!obj(message))continue
+    if(message.type===3&&obj(message.result))for(const topic of topics){if(topic in message.result)next=mergeFeed(next,topic,message.result[topic])}
+    if(message.type===1&&message.target==='feed'&&Array.isArray(message.arguments)&&message.arguments.length>=2)next=mergeFeed(next,String(message.arguments[0]),message.arguments[1])
+  }
+  return next
 }
 
 export function mergeSignalRPacket(state:SessionState,packet:unknown):SessionState{
