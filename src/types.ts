@@ -18,6 +18,7 @@ export interface SessionState {
   timeRemaining: string; lap: number; totalLaps: number; flag: 'GREEN' | 'YELLOW' | 'RED' | 'SC' | 'VSC' | 'CHEQUERED'
   updatedAt: string; drivers: DriverTiming[]; status: SessionStatus; path?: string
   clockUpdatedAt?: string; clockRunning?: boolean
+  sessionStart?: string; sessionEnd?: string
 }
 export interface RaceWeekend {
   season: number; round: number; meetingName: string; circuit: string; locality: string; country: string

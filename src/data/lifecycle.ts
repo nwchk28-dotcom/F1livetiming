@@ -8,7 +8,11 @@ export function competitionFromSession(session?:SessionState,event?:RaceWeekend,
   if(session.status==='STARTED')return qualifying?'QUALIFYING':race?'RACE':'IDLE'
   // F1 marks each qualifying segment as FINISHED during the Q1→Q2 and Q2→Q3
   // breaks. Keep the timing screen active for the whole qualifying window.
-  if(qualifying&&session.status==='FINISHED'&&event){const start=new Date(event.qualifyingStart).getTime(),end=Math.min(new Date(event.raceStart).getTime(),start+3*60*60*1000),time=now.getTime();if(time>=start&&time<=end)return'QUALIFYING'}
+  if(qualifying&&session.status==='FINISHED'){
+    const feedStart=Date.parse(session.sessionStart??''),feedEnd=Date.parse(session.sessionEnd??''),time=now.getTime()
+    if(Number.isFinite(feedStart)&&Number.isFinite(feedEnd)&&time>=feedStart&&time<=feedEnd+3*60*60*1000)return'QUALIFYING'
+    if(event){const start=new Date(event.qualifyingStart).getTime(),end=Math.min(new Date(event.raceStart).getTime(),start+3*60*60*1000);if(time>=start&&time<=end)return'QUALIFYING'}
+  }
   return'IDLE'
 }
 

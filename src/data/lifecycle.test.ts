@@ -8,6 +8,7 @@ const event=(round:number,date:string):RaceWeekend=>({season:2026,round,meetingN
 describe('session lifecycle',()=>{
   it('shows started qualifying',()=>{const s={...emptySession(),sessionName:'Qualifying',status:'STARTED'} as SessionState;expect(competitionFromSession(s)).toBe('QUALIFYING')})
   it('keeps qualifying visible between Q1, Q2 and Q3',()=>{const s={...emptySession(),sessionName:'Qualifying',status:'FINISHED'} as SessionState,e={...event(13,'2026-09-05T14:00:00Z'),raceStart:'2026-09-06T13:00:00Z'};expect(competitionFromSession(s,e,new Date('2026-09-05T14:25:00Z'))).toBe('QUALIFYING');expect(competitionFromSession(s,e,new Date('2026-09-05T18:00:00Z'))).toBe('IDLE')})
+  it('uses live session times before the season schedule has loaded',()=>{const s={...emptySession(),sessionName:'Qualifying',status:'FINISHED',sessionStart:'2026-09-05T14:00:00Z',sessionEnd:'2026-09-05T15:00:00Z'} as SessionState;expect(competitionFromSession(s,undefined,new Date('2026-09-05T15:00:01Z'))).toBe('QUALIFYING')})
   it('does not revive a finished qualifying session without its event window',()=>{const s={...emptySession(),sessionName:'Qualifying',status:'FINISHED'} as SessionState;expect(competitionFromSession(s)).toBe('IDLE')})
   it('excludes sprint sessions',()=>expect(competitionFromSession({...emptySession(),sessionName:'Sprint Qualifying',status:'STARTED'})).toBe('IDLE'))
   it('selects next qualifying',()=>expect(selectNextEvent([event(1,'2026-01-01T00:00:00Z'),event(2,'2026-03-01T00:00:00Z')],new Date('2026-02-01'))?.round).toBe(2))
