@@ -29,6 +29,16 @@ export function attachGrid(qualifying:SessionState,grid:Record<string,number>,re
   return {...qualifying,drivers:qualifying.drivers.map(d=>{const gridPosition=grid[d.number]??d.position;return{...d,qualifyingPosition:d.position,gridPosition,gridChange:gridPosition-d.position,penaltyReason:gridPosition!==d.position?(reasons[d.number]??'確定グリッド変更'):undefined}})}
 }
 
+export function applyRaceGrid(session:SessionState,grid:Record<string,number>):SessionState{
+  return{...session,drivers:session.drivers.map(d=>({...d,gridPosition:grid[d.number]??d.gridPosition}))}
+}
+
+export function isQualifyingComplete(session:SessionState,now=Date.now()):boolean{
+  if(session.status!=='FINISHED'||!session.sessionName.toLowerCase().includes('qualifying'))return false
+  const end=Date.parse(session.sessionEnd??'')
+  return Number.isFinite(end)&&now>=end-2*60*1000
+}
+
 export function sessionTimeRemaining(session:SessionState,now=Date.now()):string{
   if(!session.clockRunning||!session.clockUpdatedAt)return session.timeRemaining
   const match=session.timeRemaining.match(/^(\d+):(\d{2}):(\d{2})(?:\.\d+)?$/)

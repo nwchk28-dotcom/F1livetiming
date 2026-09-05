@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest'
 import type {RaceWeekend,SessionState} from '../types'
-import {attachGrid,competitionFromSession,selectNextEvent,sessionTimeRemaining} from './lifecycle'
+import {applyRaceGrid,attachGrid,competitionFromSession,isQualifyingComplete,selectNextEvent,sessionTimeRemaining} from './lifecycle'
 import {emptySession} from './sources'
 
 const event=(round:number,date:string):RaceWeekend=>({season:2026,round,meetingName:`Race ${round}`,circuit:'Circuit',locality:'City',country:'Japan',qualifyingStart:date,raceStart:date,timeZone:'Asia/Tokyo'})
@@ -14,5 +14,7 @@ describe('session lifecycle',()=>{
   it('selects next qualifying',()=>expect(selectNextEvent([event(1,'2026-01-01T00:00:00Z'),event(2,'2026-03-01T00:00:00Z')],new Date('2026-02-01'))?.round).toBe(2))
   it('ticks an extrapolating session clock every second',()=>{const s={...emptySession(),timeRemaining:'00:10:00',clockUpdatedAt:'2026-09-05T14:00:00Z',clockRunning:true};expect(sessionTimeRemaining(s,Date.parse('2026-09-05T14:00:07Z'))).toBe('00:09:53')})
   it('freezes a non-extrapolating session clock',()=>{const s={...emptySession(),timeRemaining:'00:02:30',clockUpdatedAt:'2026-09-05T14:00:00Z',clockRunning:false};expect(sessionTimeRemaining(s,Date.parse('2026-09-05T14:01:00Z'))).toBe('00:02:30')})
+  it('distinguishes a Q break from completed Q3',()=>{const s={...emptySession(),sessionName:'Qualifying',status:'FINISHED',sessionEnd:'2026-09-05T15:00:00Z'} as SessionState;expect(isQualifyingComplete(s,Date.parse('2026-09-05T14:30:00Z'))).toBe(false);expect(isQualifyingComplete(s,Date.parse('2026-09-05T15:00:00Z'))).toBe(true)})
+  it('applies the final race grid without replacing live positions',()=>{const s={...emptySession(),drivers:[{position:3,previousPosition:4,gridPosition:99,number:'1',code:'AAA',fullName:'A',team:'X',teamColor:'#f00',bestLap:'1:00',lastLap:'1:00',gap:'',interval:'',sectors:[],tyre:{compound:'SOFT' as const,laps:1},pitStops:0,status:'RUNNING' as const}]};const result=applyRaceGrid(s,{'1':7});expect(result.drivers[0]).toMatchObject({position:3,gridPosition:7})})
   it('attaches grid changes',()=>{const q={...emptySession(),drivers:[{position:1,previousPosition:1,gridPosition:1,number:'1',code:'AAA',fullName:'A',team:'X',teamColor:'#f00',bestLap:'1:00',lastLap:'1:00',gap:'',interval:'',sectors:[],tyre:{compound:'SOFT' as const,laps:1},pitStops:0,status:'FINISHED' as const}]};expect(attachGrid(q,{'1':4}).drivers[0].gridChange).toBe(3)})
 })
