@@ -25,4 +25,15 @@ export function attachGrid(qualifying:SessionState,grid:Record<string,number>,re
   return {...qualifying,drivers:qualifying.drivers.map(d=>{const gridPosition=grid[d.number]??d.position;return{...d,qualifyingPosition:d.position,gridPosition,gridChange:gridPosition-d.position,penaltyReason:gridPosition!==d.position?(reasons[d.number]??'確定グリッド変更'):undefined}})}
 }
 
+export function sessionTimeRemaining(session:SessionState,now=Date.now()):string{
+  if(!session.clockRunning||!session.clockUpdatedAt)return session.timeRemaining
+  const match=session.timeRemaining.match(/^(\d+):(\d{2}):(\d{2})(?:\.\d+)?$/)
+  if(!match)return session.timeRemaining
+  const received=Date.parse(session.clockUpdatedAt)
+  if(!Number.isFinite(received))return session.timeRemaining
+  const initial=(Number(match[1])*3600+Number(match[2])*60+Number(match[3]))*1000
+  const remaining=Math.max(0,initial-Math.max(0,now-received)),seconds=Math.ceil(remaining/1000)
+  return`${String(Math.floor(seconds/3600)).padStart(2,'0')}:${String(Math.floor(seconds%3600/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`
+}
+
 const normalise=(value:string)=>value.toLowerCase().replace(/grand prix|グランプリ|[^a-z0-9]/g,'')

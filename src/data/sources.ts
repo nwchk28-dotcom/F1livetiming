@@ -57,7 +57,7 @@ export function mergeFeed(state:SessionState,topic:string,data:unknown):SessionS
   if(topic==='SessionData'&&obj(data)&&obj(data.StatusSeries)){const entries=Object.values(data.StatusSeries).filter(obj),latest=entries[entries.length-1];if(latest)next.status=sessionStatus(String(latest.SessionStatus??''))}
   if(topic==='LapCount'&&obj(data)){next.lap=num(data.CurrentLap,next.lap);next.totalLaps=num(data.TotalLaps,next.totalLaps)}
   if(topic==='TrackStatus'&&obj(data))next.flag=({'1':'GREEN','2':'YELLOW','4':'SC','5':'RED','6':'VSC','7':'VSC'} as Record<string,SessionState['flag']>)[String(data.Status??'1')]??next.flag
-  if(topic==='ExtrapolatedClock'&&obj(data))next.timeRemaining=String(data.Remaining??next.timeRemaining)
+  if(topic==='ExtrapolatedClock'&&obj(data)){next.timeRemaining=String(data.Remaining??next.timeRemaining);next.clockUpdatedAt=new Date().toISOString();next.clockRunning=data.Extrapolating!==false}
   return next
 }
 
