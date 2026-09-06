@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest'
-import {emptySession,mergeSignalRCoreFrame,mergeSignalRPacket} from './sources'
+import {emptySession,F1ArchiveSource,mergeSignalRCoreFrame,mergeSignalRPacket} from './sources'
 
 describe('SignalR packets',()=>{
   it('hydrates the current qualifying session from the subscription snapshot',()=>{
@@ -27,4 +27,8 @@ describe('SignalR packets',()=>{
   })
   it('uses the latest session status instead of a later track-only update',()=>{const rs='\x1e',state=mergeSignalRCoreFrame(emptySession(),JSON.stringify({type:3,result:{SessionInfo:{Name:'Race'},SessionData:{StatusSeries:[{SessionStatus:'Started'},{TrackStatus:'Yellow'}]}}})+rs);expect(state.status).toBe('STARTED')})
   it('normalises live session dates with their GMT offset',()=>{const rs='\x1e',state=mergeSignalRCoreFrame(emptySession(),JSON.stringify({type:3,result:{SessionInfo:{Name:'Qualifying',StartDate:'2026-09-05T16:00:00',EndDate:'2026-09-05T17:00:00',GmtOffset:'02:00:00'}}})+rs);expect(state).toMatchObject({sessionStart:'2026-09-05T16:00:00+02:00',sessionEnd:'2026-09-05T17:00:00+02:00'})})
+})
+
+describe('official starting grid',()=>{
+  it('includes Italian GP grid penalties',async()=>{const grid=await new F1ArchiveSource().loadGrid({season:2026,round:13,meetingName:'Italian Grand Prix',circuit:'Monza',locality:'Monza',country:'Italy',qualifyingStart:'',raceStart:'',timeZone:'Europe/Rome'});expect(grid['12']).toBe(19);expect(grid['81']).toBe(6)})
 })
