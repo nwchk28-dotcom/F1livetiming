@@ -1,6 +1,7 @@
 const ALLOWED_ORIGINS=new Set(['https://nwchk28-dotcom.github.io','http://localhost:5173','http://127.0.0.1:5173'])
 const NEGOTIATE='https://livetiming.formula1.com/signalrcore/negotiate?negotiateVersion=1'
 const UPSTREAM='https://livetiming.formula1.com/signalrcore'
+const STATIC_UPSTREAM='https://livetiming.formula1.com/static/'
 const RS='\x1e'
 const TOPICS=['Heartbeat','ExtrapolatedClock','TimingStats','TimingAppData','TrackStatus','DriverList','RaceControlMessages','SessionInfo','SessionData','LapCount','TimingData']
 
@@ -8,12 +9,26 @@ export default {
   async fetch(request){
     const url=new URL(request.url)
     if(url.pathname==='/health')return Response.json({ok:true,service:'pitwall-live-proxy'})
+    if(url.pathname.startsWith('/static/'))return proxyStatic(request,url)
     if(url.pathname!=='/live'||request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('WebSocket required',{status:426})
     const origin=request.headers.get('Origin')??''
     if(!ALLOWED_ORIGINS.has(origin))return new Response('Origin not allowed',{status:403})
     try{return await connect()}
     catch(error){console.error(JSON.stringify({event:'upstream_connect_failed',message:error instanceof Error?error.message:String(error)}));return new Response('Live timing upstream unavailable',{status:502})}
   }
+}
+
+async function proxyStatic(request,url){
+  const origin=request.headers.get('Origin')??''
+  if(origin&&!ALLOWED_ORIGINS.has(origin))return new Response('Origin not allowed',{status:403})
+  const path=url.pathname.slice('/static/'.length)
+  if(!path||path.includes('..'))return new Response('Invalid path',{status:400})
+  const upstream=await fetch(STATIC_UPSTREAM+path,{headers:{'User-Agent':'BestHTTP'}})
+  const headers=new Headers(upstream.headers)
+  headers.set('Access-Control-Allow-Origin',origin||'https://nwchk28-dotcom.github.io')
+  headers.set('Vary','Origin')
+  headers.set('Cache-Control',path.endsWith('Index.json')?'public, max-age=60':'public, max-age=3600')
+  return new Response(upstream.body,{status:upstream.status,headers})
 }
 
 async function connect(){
