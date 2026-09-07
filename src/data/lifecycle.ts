@@ -62,4 +62,6 @@ export function sessionTimeRemaining(session:SessionState,now=Date.now()):string
   return`${String(Math.floor(seconds/3600)).padStart(2,'0')}:${String(Math.floor(seconds%3600/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`
 }
 
+export function shouldProjectChampionship(competition:CompetitionState,status:SessionState['status']):boolean{return competition==='RACE'&&(status==='STARTED'||status==='ABORTED')}
+
 const normalise=(value:string)=>value.toLowerCase().replace(/grand prix|グランプリ|[^a-z0-9]/g,'')

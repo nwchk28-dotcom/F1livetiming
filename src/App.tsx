@@ -2,7 +2,7 @@ import { useCallback,useEffect,useMemo,useState } from 'react'
 import type { ReactNode } from 'react'
 import { Activity,AlertTriangle,CalendarClock,Flag,Gauge,Radio,RefreshCw,Trophy,Wifi,WifiOff } from 'lucide-react'
 import type { ChampionshipProjection,CompetitionState,ConnectionState,DriverTiming,OfficialRaceResult,RaceWeekend,SessionState,StandingEntry,View } from './types'
-import { applyOfficialRaceResults,applyRaceGrid,attachGrid,competitionFromSession,isQualifyingComplete,selectCurrentEvent,selectNextEvent,sessionTimeRemaining } from './data/lifecycle'
+import { applyOfficialRaceResults,applyRaceGrid,attachGrid,competitionFromSession,isQualifyingComplete,selectCurrentEvent,selectNextEvent,sessionTimeRemaining,shouldProjectChampionship } from './data/lifecycle'
 import { projectConstructors,projectDriverStandings } from './data/scoring'
 import { emptySession,F1ArchiveSource,F1SignalRSource,JolpicaDataSource } from './data/sources'
 
@@ -16,12 +16,14 @@ export default function App(){
   useEffect(()=>{let active=true,finishTimer:number|undefined;const season=new Date().getFullYear(),started=Date.now();setScheduleError(false);Promise.allSettled([dataSource.getSeasonSchedule(season),dataSource.getDriverStandings(season),dataSource.getConstructorStandings(season)]).then(([s,d,c])=>{if(!active)return;const succeeded=s.status==='fulfilled'||d.status==='fulfilled'||c.status==='fulfilled';if(s.status==='fulfilled')setSchedule(s.value);else setScheduleError(true);if(d.status==='fulfilled')setDriverBase(d.value);if(c.status==='fulfilled')setConstructorBase(c.value);const finish=()=>{if(!active)return;if(succeeded)setLastUpdatedAt(new Date().toISOString());setIsRefreshing(false)};finishTimer=window.setTimeout(finish,Math.max(0,650-(Date.now()-started)))});return()=>{active=false;if(finishTimer)window.clearTimeout(finishTimer)}},[dataRefreshKey])
   useEffect(()=>{let stop:(()=>void)|undefined,active=true;liveSource.connect(s=>{if(active){setSession(s);setLastUpdatedAt(s.updatedAt||new Date().toISOString())}},c=>{if(active){setConnection(c);if(c.lastUpdate)setLastUpdatedAt(c.lastUpdate)}}).then(fn=>stop=fn);return()=>{active=false;stop?.()}},[reconnectKey])
   useEffect(()=>{if(competition!=='RACE'||!currentEvent)return;let active=true,timer:number|undefined;const load=()=>Promise.allSettled([archiveSource.loadQualifying(currentEvent),archiveSource.loadGrid(currentEvent),archiveSource.loadRaceResults(currentEvent)]).then(([q,g,r])=>{if(!active)return;if(q.status==='fulfilled'&&q.value)setArchive(q.value);if(g.status==='fulfilled'&&Object.keys(g.value).length)setGrid(g.value);if(r.status==='fulfilled'&&r.value.length)setRaceResults(r.value);else timer=window.setTimeout(load,15000)});void load();return()=>{active=false;if(timer)window.clearTimeout(timer)}},[competition,currentEvent?.round])
+  useEffect(()=>{if(session.status!=='FINISHED'||!raceResults.length)return;const season=new Date().getFullYear();localStorage.removeItem(`f1-drivers-${season}`);localStorage.removeItem(`f1-teams-${season}`);setDataRefreshKey(k=>k+1)},[session.status,raceResults.length])
 
   const reconnect=useCallback(()=>{if(isRefreshing)return;setIsRefreshing(true);setConnection({mode:'CONNECTING',attempt:0,message:'実データを再取得中'});setDataRefreshKey(k=>k+1);setReconnectKey(k=>k+1)},[isRefreshing])
   const qualifyingForRace=useMemo(()=>archive?attachGrid(archive,grid):undefined,[archive,grid])
   const raceForDisplay=useMemo(()=>applyOfficialRaceResults(applyRaceGrid(session,grid),session.status==='FINISHED'?raceResults:[]),[session,grid,raceResults])
-  const projectedDrivers=useMemo(()=>competition==='RACE'?projectDriverStandings(driverBase,session.drivers):asConfirmed(driverBase),[competition,driverBase,session.drivers])
-  const projectedTeams=useMemo(()=>competition==='RACE'?projectConstructors(constructorBase,projectedDrivers):asConfirmed(constructorBase),[competition,constructorBase,projectedDrivers])
+  const projecting=shouldProjectChampionship(competition,session.status)
+  const projectedDrivers=useMemo(()=>projecting?projectDriverStandings(driverBase,session.drivers):asConfirmed(driverBase),[projecting,driverBase,session.drivers])
+  const projectedTeams=useMemo(()=>projecting?projectConstructors(constructorBase,projectedDrivers):asConfirmed(constructorBase),[projecting,constructorBase,projectedDrivers])
   const event=currentEvent??nextEvent
 
   return <div className="app-shell"><Header event={event} session={session} competition={competition} connection={connection}/>
@@ -29,7 +31,7 @@ export default function App(){
     <main>{competition!=='IDLE'&&<FlagStatusBanner flag={session.flag}/>} {scheduleError&&<div className="api-notice"><AlertTriangle/>日程を取得できません。再接続してください。</div>}
       {view==='qualifying'&&(competition==='QUALIFYING'?<QualifyingView session={session}/>:competition==='RACE'?(qualifyingForRace?<QualifyingView session={qualifyingForRace} gridMode/>:<LoadingArchive/>):<IdleView event={nextEvent} lastUpdatedAt={lastUpdatedAt}/>) }
       {view==='race'&&(competition==='RACE'?<RaceView session={raceForDisplay}/>:competition==='QUALIFYING'?(isQualifyingComplete(session)?<StartingGridView session={session}/>:<GridPending event={currentEvent}/>):<IdleView event={nextEvent} lastUpdatedAt={lastUpdatedAt}/>) }
-      {view==='championship'&&<ChampionshipView drivers={projectedDrivers} teams={projectedTeams} live={competition==='RACE'}/>} 
+      {view==='championship'&&<ChampionshipView drivers={projectedDrivers} teams={projectedTeams} live={projecting}/>}
     </main><footer><span>UNOFFICIAL F1 DATA DASHBOARD</span><span>Data: Formula 1 Live Timing · Jolpica F1</span><span>非公式・個人利用 / 表示は暫定情報です</span></footer></div>
 }
 
