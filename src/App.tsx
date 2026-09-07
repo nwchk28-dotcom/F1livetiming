@@ -1,8 +1,8 @@
 import { useCallback,useEffect,useMemo,useState } from 'react'
 import type { ReactNode } from 'react'
 import { Activity,AlertTriangle,CalendarClock,Flag,Gauge,Radio,RefreshCw,Trophy,Wifi,WifiOff } from 'lucide-react'
-import type { ChampionshipProjection,CompetitionState,ConnectionState,DriverTiming,RaceWeekend,SessionState,StandingEntry,View } from './types'
-import { applyRaceGrid,attachGrid,competitionFromSession,isQualifyingComplete,selectCurrentEvent,selectNextEvent,sessionTimeRemaining } from './data/lifecycle'
+import type { ChampionshipProjection,CompetitionState,ConnectionState,DriverTiming,OfficialRaceResult,RaceWeekend,SessionState,StandingEntry,View } from './types'
+import { applyOfficialRaceResults,applyRaceGrid,attachGrid,competitionFromSession,isQualifyingComplete,selectCurrentEvent,selectNextEvent,sessionTimeRemaining } from './data/lifecycle'
 import { projectConstructors,projectDriverStandings } from './data/scoring'
 import { emptySession,F1ArchiveSource,F1SignalRSource,JolpicaDataSource } from './data/sources'
 
@@ -10,16 +10,16 @@ const liveSource=new F1SignalRSource(),archiveSource=new F1ArchiveSource(),dataS
 
 export default function App(){
   const [view,setView]=useState<View>('qualifying'),[session,setSession]=useState<SessionState>(emptySession()),[connection,setConnection]=useState<ConnectionState>({mode:'CONNECTING',attempt:0,message:'実データを確認中'})
-  const [schedule,setSchedule]=useState<RaceWeekend[]>([]),[driverBase,setDriverBase]=useState<StandingEntry[]>([]),[constructorBase,setConstructorBase]=useState<StandingEntry[]>([]),[archive,setArchive]=useState<SessionState>(),[grid,setGrid]=useState<Record<string,number>>({}),[scheduleError,setScheduleError]=useState(false),[reconnectKey,setReconnectKey]=useState(0),[dataRefreshKey,setDataRefreshKey]=useState(0),[isRefreshing,setIsRefreshing]=useState(false),[lastUpdatedAt,setLastUpdatedAt]=useState<string>()
+  const [schedule,setSchedule]=useState<RaceWeekend[]>([]),[driverBase,setDriverBase]=useState<StandingEntry[]>([]),[constructorBase,setConstructorBase]=useState<StandingEntry[]>([]),[archive,setArchive]=useState<SessionState>(),[grid,setGrid]=useState<Record<string,number>>({}),[raceResults,setRaceResults]=useState<OfficialRaceResult[]>([]),[scheduleError,setScheduleError]=useState(false),[reconnectKey,setReconnectKey]=useState(0),[dataRefreshKey,setDataRefreshKey]=useState(0),[isRefreshing,setIsRefreshing]=useState(false),[lastUpdatedAt,setLastUpdatedAt]=useState<string>()
   const lifecycleNow=useSecondTick(),currentEvent=selectCurrentEvent(schedule,session),competition=competitionFromSession(session,currentEvent,new Date(lifecycleNow)),nextEvent=selectNextEvent(schedule,new Date(lifecycleNow))
 
   useEffect(()=>{let active=true,finishTimer:number|undefined;const season=new Date().getFullYear(),started=Date.now();setScheduleError(false);Promise.allSettled([dataSource.getSeasonSchedule(season),dataSource.getDriverStandings(season),dataSource.getConstructorStandings(season)]).then(([s,d,c])=>{if(!active)return;const succeeded=s.status==='fulfilled'||d.status==='fulfilled'||c.status==='fulfilled';if(s.status==='fulfilled')setSchedule(s.value);else setScheduleError(true);if(d.status==='fulfilled')setDriverBase(d.value);if(c.status==='fulfilled')setConstructorBase(c.value);const finish=()=>{if(!active)return;if(succeeded)setLastUpdatedAt(new Date().toISOString());setIsRefreshing(false)};finishTimer=window.setTimeout(finish,Math.max(0,650-(Date.now()-started)))});return()=>{active=false;if(finishTimer)window.clearTimeout(finishTimer)}},[dataRefreshKey])
   useEffect(()=>{let stop:(()=>void)|undefined,active=true;liveSource.connect(s=>{if(active){setSession(s);setLastUpdatedAt(s.updatedAt||new Date().toISOString())}},c=>{if(active){setConnection(c);if(c.lastUpdate)setLastUpdatedAt(c.lastUpdate)}}).then(fn=>stop=fn);return()=>{active=false;stop?.()}},[reconnectKey])
-  useEffect(()=>{if(competition!=='RACE'||!currentEvent)return;let active=true,timer:number|undefined;const load=()=>Promise.allSettled([archiveSource.loadQualifying(currentEvent),archiveSource.loadGrid(currentEvent)]).then(([q,g])=>{if(!active)return;if(q.status==='fulfilled'&&q.value)setArchive(q.value);if(g.status==='fulfilled'&&Object.keys(g.value).length)setGrid(g.value);else timer=window.setTimeout(load,15000)});void load();return()=>{active=false;if(timer)window.clearTimeout(timer)}},[competition,currentEvent?.round])
+  useEffect(()=>{if(competition!=='RACE'||!currentEvent)return;let active=true,timer:number|undefined;const load=()=>Promise.allSettled([archiveSource.loadQualifying(currentEvent),archiveSource.loadGrid(currentEvent),archiveSource.loadRaceResults(currentEvent)]).then(([q,g,r])=>{if(!active)return;if(q.status==='fulfilled'&&q.value)setArchive(q.value);if(g.status==='fulfilled'&&Object.keys(g.value).length)setGrid(g.value);if(r.status==='fulfilled'&&r.value.length)setRaceResults(r.value);else timer=window.setTimeout(load,15000)});void load();return()=>{active=false;if(timer)window.clearTimeout(timer)}},[competition,currentEvent?.round])
 
   const reconnect=useCallback(()=>{if(isRefreshing)return;setIsRefreshing(true);setConnection({mode:'CONNECTING',attempt:0,message:'実データを再取得中'});setDataRefreshKey(k=>k+1);setReconnectKey(k=>k+1)},[isRefreshing])
   const qualifyingForRace=useMemo(()=>archive?attachGrid(archive,grid):undefined,[archive,grid])
-  const raceForDisplay=useMemo(()=>applyRaceGrid(session,grid),[session,grid])
+  const raceForDisplay=useMemo(()=>applyOfficialRaceResults(applyRaceGrid(session,grid),session.status==='FINISHED'?raceResults:[]),[session,grid,raceResults])
   const projectedDrivers=useMemo(()=>competition==='RACE'?projectDriverStandings(driverBase,session.drivers):asConfirmed(driverBase),[competition,driverBase,session.drivers])
   const projectedTeams=useMemo(()=>competition==='RACE'?projectConstructors(constructorBase,projectedDrivers):asConfirmed(constructorBase),[competition,constructorBase,projectedDrivers])
   const event=currentEvent??nextEvent

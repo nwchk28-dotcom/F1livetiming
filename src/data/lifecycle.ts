@@ -1,4 +1,4 @@
-import type { CompetitionState, RaceWeekend, SessionState } from '../types'
+import type { CompetitionState, OfficialRaceResult, RaceWeekend, SessionState } from '../types'
 
 export function competitionFromSession(session?:SessionState,event?:RaceWeekend,now=new Date()):CompetitionState{
   if(!session)return'IDLE'
@@ -37,6 +37,12 @@ export function attachGrid(qualifying:SessionState,grid:Record<string,number>,re
 
 export function applyRaceGrid(session:SessionState,grid:Record<string,number>):SessionState{
   return{...session,drivers:session.drivers.map(d=>({...d,gridPosition:grid[d.number]??d.gridPosition}))}
+}
+
+export function applyOfficialRaceResults(session:SessionState,results:OfficialRaceResult[]):SessionState{
+  if(!results.length)return session
+  const byNumber=Object.fromEntries(session.drivers.map(d=>[d.number,d]))
+  return{...session,status:'FINISHED',phase:'FINISHED',drivers:results.map(r=>{const live=byNumber[r.number];return{...(live??{position:r.position,previousPosition:r.position,gridPosition:r.gridPosition,number:r.number,code:r.number,fullName:`CAR ${r.number}`,team:'',teamColor:'#aeb3bc',bestLap:'—',lastLap:'—',gap:'—',interval:'—',sectors:[],tyre:{compound:'SOFT' as const,laps:0},pitStops:0,status:r.status}),position:r.position,previousPosition:live?.position??r.position,gridPosition:r.gridPosition,status:r.status,gap:r.gap,interval:r.interval,points:r.points,bestLap:r.bestLap??live?.bestLap??'—'}})}
 }
 
 export function isQualifyingComplete(session:SessionState,now=Date.now()):boolean{

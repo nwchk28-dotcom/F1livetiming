@@ -13,6 +13,7 @@ export interface DriverTiming {
   pitStops: number; status: 'RUNNING' | 'PIT' | 'OUT' | 'FINISHED'; points?: number
   qualifyingPosition?: number; gridChange?: number; penaltyReason?: string
 }
+export interface OfficialRaceResult { number:string; position:number; gridPosition:number; status:'FINISHED'|'OUT'; gap:string; interval:string; points:number; bestLap?:string }
 export interface SessionState {
   meetingName: string; circuit: string; sessionName: string; phase: SessionPhase
   timeRemaining: string; lap: number; totalLaps: number; flag: 'GREEN' | 'YELLOW' | 'RED' | 'SC' | 'VSC' | 'CHEQUERED'
@@ -36,4 +37,4 @@ export interface ChampionshipProjection extends StandingEntry { position: number
 export interface LiveTimingSource { connect(onState: (state: SessionState) => void, onConnection: (state: ConnectionState) => void): Promise<() => void> }
 export interface StandingsSource { getDriverStandings(season?: number): Promise<StandingEntry[]>; getConstructorStandings(season?: number): Promise<StandingEntry[]> }
 export interface ScheduleSource { getSeasonSchedule(season?: number): Promise<RaceWeekend[]> }
-export interface ArchiveSource { loadQualifying(event: RaceWeekend): Promise<SessionState | undefined>; loadGrid(event: RaceWeekend): Promise<Record<string, number>> }
+export interface ArchiveSource { loadQualifying(event: RaceWeekend): Promise<SessionState | undefined>; loadGrid(event: RaceWeekend): Promise<Record<string, number>>; loadRaceResults(event:RaceWeekend):Promise<OfficialRaceResult[]> }

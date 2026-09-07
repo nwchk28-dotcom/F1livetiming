@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest'
 import type {RaceWeekend,SessionState} from '../types'
-import {applyRaceGrid,attachGrid,competitionFromSession,isQualifyingComplete,selectNextEvent,sessionTimeRemaining} from './lifecycle'
+import {applyOfficialRaceResults,applyRaceGrid,attachGrid,competitionFromSession,isQualifyingComplete,selectNextEvent,sessionTimeRemaining} from './lifecycle'
 import {emptySession} from './sources'
 
 const event=(round:number,date:string):RaceWeekend=>({season:2026,round,meetingName:`Race ${round}`,circuit:'Circuit',locality:'City',country:'Japan',qualifyingStart:date,raceStart:date,timeZone:'Asia/Tokyo'})
@@ -19,5 +19,6 @@ describe('session lifecycle',()=>{
   it('freezes a non-extrapolating session clock',()=>{const s={...emptySession(),timeRemaining:'00:02:30',clockUpdatedAt:'2026-09-05T14:00:00Z',clockRunning:false};expect(sessionTimeRemaining(s,Date.parse('2026-09-05T14:01:00Z'))).toBe('00:02:30')})
   it('distinguishes a Q break from completed Q3',()=>{const s={...emptySession(),sessionName:'Qualifying',status:'FINISHED',sessionEnd:'2026-09-05T15:00:00Z'} as SessionState;expect(isQualifyingComplete(s,Date.parse('2026-09-05T14:30:00Z'))).toBe(false);expect(isQualifyingComplete(s,Date.parse('2026-09-05T15:00:00Z'))).toBe(true)})
   it('applies the final race grid without replacing live positions',()=>{const s={...emptySession(),drivers:[{position:3,previousPosition:4,gridPosition:99,number:'1',code:'AAA',fullName:'A',team:'X',teamColor:'#f00',bestLap:'1:00',lastLap:'1:00',gap:'',interval:'',sectors:[],tyre:{compound:'SOFT' as const,laps:1},pitStops:0,status:'RUNNING' as const}]};const result=applyRaceGrid(s,{'1':7});expect(result.drivers[0]).toMatchObject({position:3,gridPosition:7})})
+  it('applies official post-race classification and finished statuses',()=>{const s={...emptySession(),status:'FINISHED' as const,drivers:[{position:2,previousPosition:2,gridPosition:19,number:'12',code:'ANT',fullName:'Antonelli',team:'Mercedes',teamColor:'#0ff',bestLap:'1:23',lastLap:'1:24',gap:'',interval:'',sectors:[],tyre:{compound:'MEDIUM' as const,laps:17},pitStops:2,status:'RUNNING' as const}]},result=applyOfficialRaceResults(s,[{number:'12',position:1,gridPosition:19,status:'FINISHED',gap:'1:51:15.281',interval:'—',points:25}]);expect(result.drivers[0]).toMatchObject({position:1,gridPosition:19,status:'FINISHED',points:25,tyre:{compound:'MEDIUM',laps:17}})})
   it('attaches grid changes',()=>{const q={...emptySession(),drivers:[{position:1,previousPosition:1,gridPosition:1,number:'1',code:'AAA',fullName:'A',team:'X',teamColor:'#f00',bestLap:'1:00',lastLap:'1:00',gap:'',interval:'',sectors:[],tyre:{compound:'SOFT' as const,laps:1},pitStops:0,status:'FINISHED' as const}]};expect(attachGrid(q,{'1':4}).drivers[0].gridChange).toBe(3)})
 })
