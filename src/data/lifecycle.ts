@@ -8,6 +8,10 @@ export function competitionFromSession(session?:SessionState,event?:RaceWeekend,
   // During a red flag F1 publishes Aborted until the race is restarted. Keep
   // the live classification visible throughout that suspension.
   if(session.status==='STARTED'||session.status==='ABORTED')return qualifying?'QUALIFYING':race?'RACE':'IDLE'
+  if(race&&session.status==='FINISHED'){
+    const feedEnd=Date.parse(session.sessionEnd??''),scheduledStart=Date.parse(event?.raceStart??''),end=Number.isFinite(feedEnd)?feedEnd:scheduledStart+3*60*60*1000,time=now.getTime()
+    if(Number.isFinite(end)&&time>=end&&time<end+48*60*60*1000)return'RACE'
+  }
   // F1 marks each qualifying segment as FINISHED during the Q1→Q2 and Q2→Q3
   // breaks. Keep the timing screen active for the whole qualifying window.
   if(qualifying&&session.status==='FINISHED'){
