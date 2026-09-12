@@ -64,4 +64,13 @@ export function sessionTimeRemaining(session:SessionState,now=Date.now()):string
 
 export function shouldProjectChampionship(competition:CompetitionState,status:SessionState['status']):boolean{return competition==='RACE'&&(status==='STARTED'||status==='ABORTED')}
 
+export function qualifyingPhaseLabel(session:SessionState):string{
+  const part=['Q1','Q2','Q3'].includes(session.phase)?session.phase:undefined
+  if(!part)return'予選セッション情報を受信中'
+  if(session.status==='ABORTED')return`${part} 中断中・再開待ち`
+  if(session.status==='STARTED')return`${part} 進行中`
+  if(part==='Q3')return'Q3終了・予選終了'
+  return`${part}終了・Q${Number(part.slice(1))+1}開始待ち`
+}
+
 const normalise=(value:string)=>value.toLowerCase().replace(/grand prix|グランプリ|[^a-z0-9]/g,'')

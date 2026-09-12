@@ -1,11 +1,12 @@
 import {describe,expect,it} from 'vitest'
 import type {RaceWeekend,SessionState} from '../types'
-import {applyOfficialRaceResults,applyRaceGrid,attachGrid,competitionFromSession,isQualifyingComplete,selectNextEvent,sessionTimeRemaining,shouldProjectChampionship} from './lifecycle'
+import {applyOfficialRaceResults,applyRaceGrid,attachGrid,competitionFromSession,isQualifyingComplete,qualifyingPhaseLabel,selectNextEvent,sessionTimeRemaining,shouldProjectChampionship} from './lifecycle'
 import {emptySession} from './sources'
 
 const event=(round:number,date:string):RaceWeekend=>({season:2026,round,meetingName:`Race ${round}`,circuit:'Circuit',locality:'City',country:'Japan',qualifyingStart:date,raceStart:date,timeZone:'Asia/Tokyo'})
 
 describe('session lifecycle',()=>{
+  it('labels qualifying progress, segment breaks and red flag restarts',()=>{const s={...emptySession(),phase:'Q1' as const,status:'STARTED' as const};expect(qualifyingPhaseLabel(s)).toBe('Q1 進行中');expect(qualifyingPhaseLabel({...s,status:'FINISHED'})).toBe('Q1終了・Q2開始待ち');expect(qualifyingPhaseLabel({...s,phase:'Q2',status:'INACTIVE'})).toBe('Q2終了・Q3開始待ち');expect(qualifyingPhaseLabel({...s,phase:'Q2',status:'ABORTED'})).toBe('Q2 中断中・再開待ち');expect(qualifyingPhaseLabel({...s,phase:'Q3',status:'FINISHED'})).toBe('Q3終了・予選終了')})
   it('keeps qualifying visible during inactive segment breaks',()=>{const s={...emptySession(),sessionName:'Qualifying',status:'INACTIVE' as const,sessionStart:'2026-09-12T14:00:00Z',sessionEnd:'2026-09-12T15:00:00Z'};expect(competitionFromSession(s,undefined,new Date('2026-09-12T14:24:36Z'))).toBe('QUALIFYING');expect(competitionFromSession(s,undefined,new Date('2026-09-13T14:24:36Z'))).toBe('IDLE')})
   it('shows started qualifying',()=>{const s={...emptySession(),sessionName:'Qualifying',status:'STARTED'} as SessionState;expect(competitionFromSession(s)).toBe('QUALIFYING')})
   it('keeps an aborted race visible during a red flag',()=>{const s={...emptySession(),sessionName:'Race',status:'ABORTED'} as SessionState;expect(competitionFromSession(s)).toBe('RACE')})
