@@ -63,7 +63,14 @@ export function mergeFeed(state:SessionState,topic:string,data:unknown):SessionS
   if(topic==='LapCount'&&obj(data)){next.lap=num(data.CurrentLap,next.lap);next.totalLaps=num(data.TotalLaps,next.totalLaps)}
   if(topic==='TrackStatus'&&obj(data))next.flag=({'1':'GREEN','2':'YELLOW','4':'SC','5':'RED','6':'VSC','7':'VSC'} as Record<string,SessionState['flag']>)[String(data.Status??'1')]??next.flag
   if(topic==='ExtrapolatedClock'&&obj(data)){next.timeRemaining=String(data.Remaining??next.timeRemaining);next.clockUpdatedAt=new Date().toISOString();next.clockRunning=data.Extrapolating!==false}
+  if(topic==='TimingData')normaliseOverallColours(next.drivers)
   return next
+}
+
+function timingSeconds(value:string):number{if(!/^\d+(?::\d{2})*(?:\.\d+)?$/.test(value))return Infinity;return value.split(':').reduce((total,part)=>total*60+Number(part),0)}
+function normaliseOverallColours(drivers:DriverTiming[]){
+  for(let sector=0;sector<3;sector++){const candidates=drivers.filter(d=>d.sectors[sector]?.status==='overall').sort((a,b)=>timingSeconds(a.sectors[sector].value)-timingSeconds(b.sectors[sector].value));for(const d of candidates.slice(1))d.sectors[sector].status='personal';if(candidates[0]&&!Number.isFinite(timingSeconds(candidates[0].sectors[sector].value)))candidates[0].sectors[sector].status='normal'}
+  for(const [valueKey,statusKey]of [['bestLap','bestLapStatus'],['lastLap','lastLapStatus']] as const){const candidates=drivers.filter(d=>d[statusKey]==='overall').sort((a,b)=>timingSeconds(a[valueKey])-timingSeconds(b[valueKey]));for(const d of candidates.slice(1))d[statusKey]='personal';if(candidates[0]&&!Number.isFinite(timingSeconds(candidates[0][valueKey])))candidates[0][statusKey]='normal'}
 }
 
 function parseStream(raw:string){const out:unknown[]=[];for(const line of raw.split('\n')){const start=line.indexOf('{');if(start<0)continue;try{out.push(JSON.parse(line.slice(start)))}catch{/* incomplete */}}return out}
