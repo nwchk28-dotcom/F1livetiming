@@ -12,6 +12,7 @@ export interface DriverTiming {
   lastLap: string; gap: string; interval: string; sectors: SectorTime[]; tyre: TyreStint
   pitStops: number; status: 'RUNNING' | 'PIT' | 'OUT' | 'FINISHED'; points?: number
   qualifyingPosition?: number; gridChange?: number; penaltyReason?: string
+  bestLapStatus?: SectorTime['status']; lastLapStatus?: SectorTime['status']
 }
 export interface OfficialRaceResult { number:string; position:number; gridPosition:number; status:'FINISHED'|'OUT'; gap:string; interval:string; points:number; bestLap?:string }
 export interface SessionState {

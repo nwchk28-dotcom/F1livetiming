@@ -1,7 +1,8 @@
 import {describe,expect,it} from 'vitest'
-import {emptySession,F1ArchiveSource,mergeSignalRCoreFrame,mergeSignalRPacket} from './sources'
+import {emptySession,mergeFeed,F1ArchiveSource,mergeSignalRCoreFrame,mergeSignalRPacket} from './sources'
 
 describe('SignalR packets',()=>{
+  it('retains fastest colours until the displayed time changes',()=>{let state=mergeFeed(emptySession(),'TimingData',{Lines:{'1':{BestLapTime:{Value:'1:20.000',PersonalFastest:true},Sectors:{'0':{Value:'25.000',OverallFastest:true}}}}});state=mergeFeed(state,'TimingData',{Lines:{'1':{BestLapTime:{PersonalFastest:false},Sectors:{'0':{OverallFastest:false}}}}});expect(state.drivers[0].bestLapStatus).toBe('personal');expect(state.drivers[0].sectors[0].status).toBe('overall');state=mergeFeed(state,'TimingData',{Lines:{'1':{BestLapTime:{Value:'1:21.000'},Sectors:{'0':{Value:'26.000'}}}}});expect(state.drivers[0].bestLapStatus).toBe('normal');expect(state.drivers[0].sectors[0].status).toBe('normal')})
   it('hydrates the current qualifying session from the subscription snapshot',()=>{
     const state=mergeSignalRPacket(emptySession(),{R:{
       SessionInfo:{Name:'Qualifying',Meeting:{Name:'Italian Grand Prix',Circuit:{ShortName:'Monza'}}},
