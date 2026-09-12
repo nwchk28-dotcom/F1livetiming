@@ -6,6 +6,7 @@ import {emptySession} from './sources'
 const event=(round:number,date:string):RaceWeekend=>({season:2026,round,meetingName:`Race ${round}`,circuit:'Circuit',locality:'City',country:'Japan',qualifyingStart:date,raceStart:date,timeZone:'Asia/Tokyo'})
 
 describe('session lifecycle',()=>{
+  it('keeps qualifying visible during inactive segment breaks',()=>{const s={...emptySession(),sessionName:'Qualifying',status:'INACTIVE' as const,sessionStart:'2026-09-12T14:00:00Z',sessionEnd:'2026-09-12T15:00:00Z'};expect(competitionFromSession(s,undefined,new Date('2026-09-12T14:24:36Z'))).toBe('QUALIFYING');expect(competitionFromSession(s,undefined,new Date('2026-09-13T14:24:36Z'))).toBe('IDLE')})
   it('shows started qualifying',()=>{const s={...emptySession(),sessionName:'Qualifying',status:'STARTED'} as SessionState;expect(competitionFromSession(s)).toBe('QUALIFYING')})
   it('keeps an aborted race visible during a red flag',()=>{const s={...emptySession(),sessionName:'Race',status:'ABORTED'} as SessionState;expect(competitionFromSession(s)).toBe('RACE')})
   it('keeps final race and qualifying views available for 48 hours',()=>{const s={...emptySession(),sessionName:'Race',status:'FINISHED',sessionEnd:'2026-09-06T15:00:00Z'} as SessionState;expect(competitionFromSession(s,undefined,new Date('2026-09-08T14:59:59Z'))).toBe('RACE');expect(competitionFromSession(s,undefined,new Date('2026-09-08T15:00:00Z'))).toBe('IDLE')})

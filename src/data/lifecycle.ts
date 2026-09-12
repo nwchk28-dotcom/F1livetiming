@@ -12,9 +12,9 @@ export function competitionFromSession(session?:SessionState,event?:RaceWeekend,
     const feedEnd=Date.parse(session.sessionEnd??''),scheduledStart=Date.parse(event?.raceStart??''),end=Number.isFinite(feedEnd)?feedEnd:scheduledStart+3*60*60*1000,time=now.getTime()
     if(Number.isFinite(end)&&time>=end&&time<end+48*60*60*1000)return'RACE'
   }
-  // F1 marks each qualifying segment as FINISHED during the Q1→Q2 and Q2→Q3
-  // breaks. Keep the timing screen active for the whole qualifying window.
-  if(qualifying&&session.status==='FINISHED'){
+  // Segment breaks can publish Finished, Finalised or Inactive. The session
+  // identity and qualifying window, not the segment status, own this screen.
+  if(qualifying){
     const feedStart=Date.parse(session.sessionStart??''),feedEnd=Date.parse(session.sessionEnd??''),time=now.getTime()
     if(Number.isFinite(feedStart)&&Number.isFinite(feedEnd)&&time>=feedStart&&time<=feedEnd+3*60*60*1000)return'QUALIFYING'
     if(event){const start=new Date(event.qualifyingStart).getTime(),end=Math.min(new Date(event.raceStart).getTime(),start+3*60*60*1000);if(time>=start&&time<=end)return'QUALIFYING'}
