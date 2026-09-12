@@ -36,7 +36,7 @@ export class F1SignalRSource implements LiveTimingSource{
 export function mergeSignalRCoreFrame(state:SessionState,raw:string):SessionState{
   let next=state
   for(const part of raw.split('\x1e')){if(!part.trim())continue;let message:unknown;try{message=JSON.parse(part)}catch{continue}if(!obj(message))continue
-    if(message.type===3&&obj(message.result))for(const topic of topics){if(topic in message.result)next=mergeFeed(next,topic,message.result[topic])}
+    if(message.type===3&&obj(message.result)){for(const topic of topics){if(topic in message.result)next=mergeFeed(next,topic,message.result[topic])}next={...next,drivers:next.drivers.map(d=>({...d,timingImprovedAt:undefined}))}}
     if(message.type===1&&message.target==='feed'&&Array.isArray(message.arguments)&&message.arguments.length>=2)next=mergeFeed(next,String(message.arguments[0]),message.arguments[1])
   }
   return next
@@ -48,7 +48,7 @@ export function mergeSignalRPacket(state:SessionState,packet:unknown):SessionSta
   // The Subscribe response contains the complete current session in R. Without
   // applying it, a page opened at session start stays idle until each topic
   // happens to publish another incremental update.
-  if(obj(packet.R))for(const topic of topics){if(topic in packet.R)next=mergeFeed(next,topic,packet.R[topic])}
+  if(obj(packet.R)){for(const topic of topics){if(topic in packet.R)next=mergeFeed(next,topic,packet.R[topic])}next={...next,drivers:next.drivers.map(d=>({...d,timingImprovedAt:undefined}))}}
   if(Array.isArray(packet.M))for(const message of packet.M){if(!obj(message)||message.M!=='feed'||!Array.isArray(message.A)||message.A.length<2)continue;next=mergeFeed(next,String(message.A[0]),message.A[1])}
   return next
 }
