@@ -16,6 +16,7 @@
 @media(max-width:560px){.brand small{font-size:7px;letter-spacing:.75px}}
 
 /* Refresh feedback and data freshness */
+.position-history{margin:18px 0;padding:14px 18px;border:1px solid var(--line);background:#10151c}.position-history h3{margin:0 0 12px;font-size:14px}.position-history h3 small{font-size:10px;color:var(--muted);font-weight:400;margin-left:12px}.position-history ol{list-style:none;padding:0;margin:0}.position-history li{display:flex;gap:16px;padding:8px 0;border-top:1px solid var(--line);font-size:12px}.position-history li>b{white-space:nowrap;color:var(--muted)}.position-history li div{display:flex;gap:8px 18px;flex-wrap:wrap}.position-history p{font-size:12px;color:var(--muted)}.change-up,.position-up .recent-position{color:var(--green)}.change-down,.position-down .recent-position{color:#ff5869}.change-name{color:var(--muted);font-size:10px}.race-table tr.position-up{background:rgba(50,213,131,.12)}.race-table tr.position-down{background:rgba(255,58,80,.1)}.recent-position{display:block;font-size:9px;white-space:nowrap;line-height:1.4}.race-table tr{position:relative}@media(max-width:560px){.position-history{padding:12px}.position-history h3 small{display:block;margin:6px 0 0}.position-history li{gap:10px}.change-name{display:block}}
 .tab-actions button:disabled,.primary-action:disabled{cursor:wait;opacity:.72}
 .tab-actions button:hover:not(:disabled),.primary-action:hover:not(:disabled){border-color:#707b88}
 .tab-actions .action-label{display:inline}
