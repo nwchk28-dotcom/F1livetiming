@@ -1,4 +1,4 @@
-import {describe,expect,it} from 'vitest'
+import {afterEach,describe,expect,it,vi} from 'vitest'
 import {emptySession,mergeFeed,F1ArchiveSource,mergeSignalRCoreFrame,mergeSignalRPacket} from './sources'
 
 describe('SignalR packets',()=>{
@@ -33,6 +33,42 @@ describe('SignalR packets',()=>{
   it('keeps tyre and grid data when TimingAppData arrives before DriverList',()=>{const rs='\x1e',state=mergeSignalRCoreFrame(emptySession(),JSON.stringify({type:3,result:{TimingAppData:{Lines:{'12':{GridPos:'19',Stints:[{Compound:'HARD',TotalLaps:3},{Compound:'MEDIUM',TotalLaps:16}]}}},DriverList:{'12':{Tla:'ANT',FullName:'Kimi ANTONELLI'}}}})+rs);expect(state.drivers[0]).toMatchObject({number:'12',code:'ANT',gridPosition:19,tyre:{compound:'MEDIUM',laps:16}})})
   it('uses the latest session status instead of a later track-only update',()=>{const rs='\x1e',state=mergeSignalRCoreFrame(emptySession(),JSON.stringify({type:3,result:{SessionInfo:{Name:'Race'},SessionData:{StatusSeries:[{SessionStatus:'Started'},{TrackStatus:'Yellow'}]}}})+rs);expect(state.status).toBe('STARTED')})
   it('normalises live session dates with their GMT offset',()=>{const rs='\x1e',state=mergeSignalRCoreFrame(emptySession(),JSON.stringify({type:3,result:{SessionInfo:{Name:'Qualifying',StartDate:'2026-09-05T16:00:00',EndDate:'2026-09-05T17:00:00',GmtOffset:'02:00:00'}}})+rs);expect(state).toMatchObject({sessionStart:'2026-09-05T16:00:00+02:00',sessionEnd:'2026-09-05T17:00:00+02:00'})})
+})
+
+describe('completed qualifying results',()=>{
+  const event={season:2026,round:14,meetingName:'Spanish Grand Prix',circuit:'Madrid',locality:'Madrid',country:'Spain',qualifyingStart:'',raceStart:'',timeZone:'Europe/Madrid'}
+  afterEach(()=>{vi.unstubAllGlobals();localStorage.clear()})
+
+  it('marks every archived driver finished and preserves timing data on reload',async()=>{
+    localStorage.clear()
+    const timing={Lines:{'1':{Position:'1',BestLapTime:{Value:'1:32.000',OverallFastest:true},Sectors:{'0':{Value:'28.000',PersonalFastest:true}}},'12':{Position:'2',InPit:true},'44':{Position:'3',Retired:true}}}
+    vi.stubGlobal('fetch',vi.fn(async(input:string)=>{
+      if(input.endsWith('Index.json'))return new Response(JSON.stringify({Meetings:[{Name:event.meetingName,Sessions:[{Name:'Qualifying',Path:'qualifying/'}]}]}))
+      return new Response(input.endsWith('TimingData.jsonStream')?JSON.stringify(timing):'')
+    }))
+    for(let reload=0;reload<2;reload++){
+      const result=await new F1ArchiveSource().loadQualifying(event)
+      expect(result?.status).toBe('FINISHED')
+      expect(result?.drivers.map(d=>d.status)).toEqual(['FINISHED','FINISHED','FINISHED'])
+      expect(result?.drivers[0]).toMatchObject({position:1,bestLap:'1:32.000',bestLapStatus:'overall'})
+      expect(result?.drivers[0].sectors[0]).toEqual({value:'28.000',status:'personal'})
+    }
+  })
+
+  it('marks fallback API qualifying results finished',async()=>{
+    localStorage.clear()
+    vi.stubGlobal('fetch',vi.fn(async(input:string)=>input.endsWith('Index.json')?new Response('',{status:503}):new Response(JSON.stringify({MRData:{RaceTable:{Races:[{QualifyingResults:[{number:'44',position:'2',Q3:'1:32.079',Driver:{code:'HAM',givenName:'Lewis',familyName:'Hamilton'},Constructor:{name:'Ferrari'}}]}]}}}))))
+    const result=await new F1ArchiveSource().loadQualifying(event)
+    expect(result?.drivers[0]).toMatchObject({status:'FINISHED',position:2,gridPosition:2,bestLap:'1:32.079'})
+  })
+
+  it('keeps live and inter-segment driver statuses unchanged',()=>{
+    for(const phase of [1,2,3]){
+      let state=mergeFeed(emptySession(),'TimingData',{SessionPart:phase,Lines:{'1':{Position:'1'},'12':{Position:'2',InPit:true},'44':{Position:'3',Retired:true}}})
+      state=mergeFeed(state,'SessionData',{StatusSeries:{'0':{SessionStatus:'Finished'}}})
+      expect(state.drivers.map(d=>d.status)).toEqual(['RUNNING','PIT','OUT'])
+    }
+  })
 })
 
 describe('official starting grid',()=>{
