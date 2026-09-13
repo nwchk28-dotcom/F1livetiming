@@ -2,6 +2,17 @@ import {afterEach,describe,expect,it,vi} from 'vitest'
 import {emptySession,mergeFeed,F1ArchiveSource,mergeSignalRCoreFrame,mergeSignalRPacket} from './sources'
 
 describe('SignalR packets',()=>{
+  it('records actual race finish time and retains it through finalisation and reload snapshots',()=>{
+    let s=mergeFeed(emptySession(),'SessionInfo',{Name:'Race',EndDate:'2026-09-13T16:00:00Z'})
+    s=mergeFeed(s,'SessionData',{StatusSeries:{'0':{SessionStatus:'Finished',Utc:'2026-09-13T14:30:00Z'}}})
+    expect(s.sessionFinishedAt).toBe('2026-09-13T14:30:00.000Z')
+    s=mergeFeed(s,'SessionData',{StatusSeries:{'1':{SessionStatus:'Finalised',Utc:'2026-09-13T14:35:00Z'}}})
+    expect(s.status).toBe('FINISHED')
+    expect(s.sessionFinishedAt).toBe('2026-09-13T14:30:00.000Z')
+    const restored=mergeSignalRCoreFrame(emptySession(),JSON.stringify({type:3,result:{SessionInfo:{Name:'Race'},SessionData:{StatusSeries:[{SessionStatus:'Finished',Utc:'2026-09-13T14:30:00Z'},{SessionStatus:'Finalised',Utc:'2026-09-13T14:35:00Z'}]}}})+'\x1e')
+    expect(restored.status).toBe('FINISHED')
+    expect(restored.sessionFinishedAt).toBe('2026-09-13T14:30:00.000Z')
+  })
   it('does not highlight initial snapshots but highlights subsequent improvements',()=>{let s=mergeSignalRCoreFrame(emptySession(),JSON.stringify({type:3,result:{TimingData:{Lines:{'1':{Position:'1',BestLapTime:{Value:'1:33.000'}}}}}})+'\x1e');expect(s.drivers[0].timingImprovedAt).toBeUndefined();s=mergeSignalRCoreFrame(s,JSON.stringify({type:1,target:'feed',arguments:['TimingData',{Lines:{'1':{BestLapTime:{Value:'1:32.000'}}}}]})+'\x1e');expect(s.drivers[0].timingImprovedAt).toBeGreaterThan(0)})
   it('clears downstream sectors and suppresses colours on unmeasured times',()=>{let s=mergeFeed(emptySession(),'TimingData',{Lines:{'1':{Position:'2',BestLapTime:{Value:'',PersonalFastest:true},Stats:{'0':{TimeDiffToPositionAhead:'+0.250'}},Sectors:{'0':{Value:'28.000'},'1':{Value:'33.000',PersonalFastest:true},'2':{Value:'31.000',OverallFastest:true}}}}});expect(s.drivers[0].bestLapStatus).toBe('normal');expect(s.drivers[0].gap).toBe('+0.250');s=mergeFeed(s,'TimingData',{Lines:{'1':{Sectors:{'0':{Value:'27.900',PersonalFastest:true}}}}});expect(s.drivers[0].sectors.slice(1)).toEqual([{value:'—',status:'normal'},{value:'—',status:'normal'}])})
   it('clears previous qualifying segment times when Q2 starts',()=>{let s=mergeFeed(emptySession(),'TimingData',{SessionPart:1,Lines:{'12':{Position:'1',BestLapTime:{Value:'1:33.000'},Sectors:{'0':{Value:'28.000',OverallFastest:true}}}}});s=mergeFeed(s,'SessionData',{Series:{'2':{QualifyingPart:2}}});expect(s.phase).toBe('Q2');expect(s.drivers[0].bestLap).toBe('—');expect(s.drivers[0].sectors[0]).toEqual({value:'—',status:'normal'});s=mergeFeed(s,'TimingData',{SessionPart:2,Lines:{'12':{BestLapTime:{Value:'1:32.000'}}}});expect(s.drivers[0].bestLap).toBe('1:32.000')})

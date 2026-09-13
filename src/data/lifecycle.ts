@@ -8,8 +8,10 @@ export function competitionFromSession(session?:SessionState,event?:RaceWeekend,
   // the live classification visible throughout that suspension.
   if(session&&(session.status==='STARTED'||session.status==='ABORTED'))return qualifying?'QUALIFYING':race?'RACE':'IDLE'
   if(race&&session?.status==='FINISHED'){
-    const feedEnd=Date.parse(session.sessionEnd??''),scheduledStart=Date.parse(event?.raceStart??''),end=Number.isFinite(feedEnd)?feedEnd:scheduledStart+3*60*60*1000,time=now.getTime()
-    if(Number.isFinite(end)&&time>=end&&time<end+48*60*60*1000)return'RACE'
+    const finishedAt=Date.parse(session.sessionFinishedAt??''),feedEnd=Date.parse(session.sessionEnd??''),scheduledStart=Date.parse(event?.raceStart??''),end=Number.isFinite(finishedAt)?finishedAt:Number.isFinite(feedEnd)?feedEnd:scheduledStart+3*60*60*1000,time=now.getTime()
+    // EndDate is a scheduled boundary, not permission to display results.
+    // A received finish signal must retain the classification immediately.
+    if(Number.isFinite(end)&&time<end+48*60*60*1000)return'RACE'
     return'IDLE'
   }
   // Segment breaks can publish Finished, Finalised or Inactive. The session

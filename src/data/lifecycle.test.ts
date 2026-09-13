@@ -6,6 +6,17 @@ import {emptySession} from './sources'
 const event=(round:number,date:string):RaceWeekend=>({season:2026,round,meetingName:`Race ${round}`,circuit:'Circuit',locality:'City',country:'Japan',qualifyingStart:date,raceStart:date,timeZone:'Asia/Tokyo'})
 
 describe('session lifecycle',()=>{
+  it('keeps results immediately when the race finishes before its scheduled end',()=>{
+    const s={...emptySession(),sessionName:'Race',status:'FINISHED' as const,sessionEnd:'2026-09-13T16:00:00Z'}
+    expect(competitionFromSession(s,undefined,new Date('2026-09-13T14:30:00Z'))).toBe('RACE')
+    const actual={...s,sessionFinishedAt:'2026-09-13T14:30:00Z'}
+    expect(competitionFromSession(actual,undefined,new Date('2026-09-15T14:29:59Z'))).toBe('RACE')
+    expect(competitionFromSession(actual,undefined,new Date('2026-09-15T14:30:00Z'))).toBe('IDLE')
+  })
+  it('keeps results immediately even when only the scheduled fallback is available',()=>{
+    const s={...emptySession(),sessionName:'Race',status:'FINISHED' as const},e={...event(14,'2026-09-13T13:00:00Z')}
+    expect(competitionFromSession(s,e,new Date('2026-09-13T14:30:00Z'))).toBe('RACE')
+  })
   it('restores the pre-race screen after qualifying and across reloads',()=>{const e={...event(14,'2026-09-12T14:00:00Z'),raceStart:'2026-09-13T13:00:00Z'},s={...emptySession(),sessionName:'Qualifying',phase:'Q3' as const,status:'FINISHED' as const,sessionStart:'2026-09-12T14:00:00Z',sessionEnd:'2026-09-12T15:00:00Z'};for(const time of ['2026-09-12T15:00:00Z','2026-09-12T18:00:00Z','2026-09-13T12:00:00Z','2026-09-13T13:30:00Z'])expect(competitionFromSession(s,e,new Date(time))).toBe('PRE_RACE');expect(competitionFromSession(emptySession(),e,new Date('2026-09-13T12:00:00Z'))).toBe('PRE_RACE');expect(competitionFromSession({...s,sessionName:'Race',status:'STARTED'},e,new Date('2026-09-13T13:30:00Z'))).toBe('RACE')})
   it('labels qualifying progress, segment breaks and red flag restarts',()=>{const s={...emptySession(),phase:'Q1' as const,status:'STARTED' as const};expect(qualifyingPhaseLabel(s)).toBe('Q1 進行中');expect(qualifyingPhaseLabel({...s,status:'FINISHED'})).toBe('Q1終了・Q2開始待ち');expect(qualifyingPhaseLabel({...s,phase:'Q2',status:'INACTIVE'})).toBe('Q2終了・Q3開始待ち');expect(qualifyingPhaseLabel({...s,phase:'Q2',status:'ABORTED'})).toBe('Q2 中断中・再開待ち');expect(qualifyingPhaseLabel({...s,phase:'Q3',status:'FINISHED'})).toBe('Q3終了・予選終了')})
   it('keeps qualifying visible during inactive segment breaks',()=>{const s={...emptySession(),sessionName:'Qualifying',status:'INACTIVE' as const,sessionStart:'2026-09-12T14:00:00Z',sessionEnd:'2026-09-12T15:00:00Z'};expect(competitionFromSession(s,undefined,new Date('2026-09-12T14:24:36Z'))).toBe('QUALIFYING');expect(competitionFromSession(s,undefined,new Date('2026-09-13T14:24:36Z'))).toBe('IDLE')})

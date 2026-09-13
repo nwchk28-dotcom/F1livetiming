@@ -17,6 +17,7 @@ export interface DriverTiming {
 }
 export interface OfficialRaceResult { number:string; position:number; gridPosition:number; status:'FINISHED'|'OUT'; gap:string; interval:string; points:number; bestLap?:string }
 export interface SessionState {
+  sessionFinishedAt?: string
   meetingName: string; circuit: string; sessionName: string; phase: SessionPhase
   timeRemaining: string; lap: number; totalLaps: number; flag: 'GREEN' | 'YELLOW' | 'RED' | 'SC' | 'VSC' | 'CHEQUERED'
   updatedAt: string; drivers: DriverTiming[]; status: SessionStatus; path?: string
