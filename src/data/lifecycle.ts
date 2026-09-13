@@ -1,24 +1,26 @@
 import type { CompetitionState, OfficialRaceResult, RaceWeekend, SessionState } from '../types'
 
 export function competitionFromSession(session?:SessionState,event?:RaceWeekend,now=new Date()):CompetitionState{
-  if(!session)return'IDLE'
-  const name=session.sessionName.toLowerCase()
+  const name=session?.sessionName.toLowerCase()??''
   const qualifying=name.includes('qualifying')&&!name.includes('sprint')
   const race=(name==='race'||name.includes('grand prix'))&&!name.includes('sprint')
   // During a red flag F1 publishes Aborted until the race is restarted. Keep
   // the live classification visible throughout that suspension.
-  if(session.status==='STARTED'||session.status==='ABORTED')return qualifying?'QUALIFYING':race?'RACE':'IDLE'
-  if(race&&session.status==='FINISHED'){
+  if(session&&(session.status==='STARTED'||session.status==='ABORTED'))return qualifying?'QUALIFYING':race?'RACE':'IDLE'
+  if(race&&session?.status==='FINISHED'){
     const feedEnd=Date.parse(session.sessionEnd??''),scheduledStart=Date.parse(event?.raceStart??''),end=Number.isFinite(feedEnd)?feedEnd:scheduledStart+3*60*60*1000,time=now.getTime()
     if(Number.isFinite(end)&&time>=end&&time<end+48*60*60*1000)return'RACE'
+    return'IDLE'
   }
   // Segment breaks can publish Finished, Finalised or Inactive. The session
   // identity and qualifying window, not the segment status, own this screen.
-  if(qualifying){
+  if(qualifying&&session){
+    if(session.phase==='Q3'&&session.status==='FINISHED'&&event)return'PRE_RACE'
     const feedStart=Date.parse(session.sessionStart??''),feedEnd=Date.parse(session.sessionEnd??''),time=now.getTime()
     if(Number.isFinite(feedStart)&&Number.isFinite(feedEnd)&&time>=feedStart&&time<=feedEnd+3*60*60*1000)return'QUALIFYING'
     if(event){const start=new Date(event.qualifyingStart).getTime(),end=Math.min(new Date(event.raceStart).getTime(),start+3*60*60*1000);if(time>=start&&time<=end)return'QUALIFYING'}
   }
+  if(event){const time=now.getTime(),qualifyingEnd=Date.parse(event.qualifyingStart)+3*60*60*1000,raceWindowEnd=Date.parse(event.raceStart)+5*60*60*1000;if(time>=qualifyingEnd&&time<raceWindowEnd)return'PRE_RACE'}
   return'IDLE'
 }
 

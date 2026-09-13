@@ -1,7 +1,7 @@
 export type View = 'qualifying' | 'race' | 'championship'
 export type FeedMode = 'LIVE' | 'REPLAY' | 'OFFLINE' | 'CONNECTING'
 export type SessionPhase = 'Q1' | 'Q2' | 'Q3' | 'RACE' | 'FINISHED'
-export type CompetitionState = 'IDLE' | 'QUALIFYING' | 'RACE'
+export type CompetitionState = 'IDLE' | 'QUALIFYING' | 'PRE_RACE' | 'RACE'
 export type SessionStatus = 'INACTIVE' | 'STARTED' | 'FINISHED' | 'ABORTED'
 
 export interface SectorTime { value: string; status: 'normal' | 'personal' | 'overall' }
