@@ -17,7 +17,7 @@ export function competitionFromSession(session?:SessionState,event?:RaceWeekend,
   // Segment breaks can publish Finished, Finalised or Inactive. The session
   // identity and qualifying window, not the segment status, own this screen.
   if(qualifying&&session){
-    if(session.phase==='Q3'&&session.qualifyingFinalised&&session.qualifyingPartStarted!==false&&event)return'PRE_RACE'
+    if(session.phase==='Q3'&&session.qualifyingFinalised&&session.qualifyingPartStarted!==false&&(!event||timeBeforeRaceWindowEnd(event,now)))return'PRE_RACE'
     const feedStart=Date.parse(session.sessionStart??''),feedEnd=Date.parse(session.sessionEnd??''),time=now.getTime()
     if(Number.isFinite(feedStart)&&Number.isFinite(feedEnd)&&time>=feedStart&&time<=feedEnd+3*60*60*1000)return'QUALIFYING'
     if(event){const start=new Date(event.qualifyingStart).getTime(),end=Math.min(new Date(event.raceStart).getTime(),start+3*60*60*1000);if(time>=start&&time<=end)return'QUALIFYING'}
@@ -30,9 +30,10 @@ export function selectNextEvent(schedule:RaceWeekend[],now=new Date()):RaceWeeke
   return schedule.find(e=>new Date(e.qualifyingStart).getTime()>now.getTime())
 }
 
-export function selectCurrentEvent(schedule:RaceWeekend[],session?:SessionState):RaceWeekend|undefined{
-  if(session?.meetingName){const target=normalise(session.meetingName);const exact=schedule.find(e=>normalise(e.meetingName).includes(target)||target.includes(normalise(e.meetingName)));if(exact)return exact}
-  const now=Date.now();return schedule.find(e=>now>=new Date(e.qualifyingStart).getTime()-3*60*60*1000&&now<=new Date(e.raceStart).getTime()+5*60*60*1000)
+export function selectCurrentEvent(schedule:RaceWeekend[],session?:SessionState,now=new Date()):RaceWeekend|undefined{
+  const time=now.getTime(),current=schedule.filter(e=>time>=Date.parse(e.qualifyingStart)-3*60*60*1000&&time<Date.parse(e.raceStart)+48*60*60*1000)
+  if(session?.meetingName){const target=normalise(session.meetingName);const exact=current.find(e=>normalise(e.meetingName).includes(target)||target.includes(normalise(e.meetingName)));if(exact)return exact}
+  return current[0]
 }
 
 export function attachGrid(qualifying:SessionState,grid:Record<string,number>,reasons:Record<string,string>={}):SessionState{
@@ -93,3 +94,4 @@ export function qualifyingPhaseLabel(session:SessionState,now=Date.now()):string
 }
 
 const normalise=(value:string)=>value.toLowerCase().replace(/grand prix|グランプリ|[^a-z0-9]/g,'')
+const timeBeforeRaceWindowEnd=(event:RaceWeekend,now:Date)=>now.getTime()<Date.parse(event.raceStart)+5*60*60*1000

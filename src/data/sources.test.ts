@@ -179,7 +179,7 @@ describe('completed qualifying results',()=>{
     const timing={Lines:{'1':{Position:'1',BestLapTime:{Value:'1:32.000',OverallFastest:true},Sectors:{'0':{Value:'28.000',PersonalFastest:true}}},'12':{Position:'2',InPit:true},'44':{Position:'3',Retired:true}}}
     vi.stubGlobal('fetch',vi.fn(async(input:string)=>{
       if(input.endsWith('Index.json'))return new Response(JSON.stringify({Meetings:[{Name:event.meetingName,Sessions:[{Name:'Qualifying',Path:'qualifying/'}]}]}))
-      return new Response(input.endsWith('TimingData.jsonStream')?JSON.stringify(timing):'')
+      return new Response(input.endsWith('TimingData.jsonStream')?JSON.stringify(timing):input.endsWith('SessionData.jsonStream')?JSON.stringify({StatusSeries:{'6':{SessionStatus:'Finalised'}}}):'')
     }))
     for(let reload=0;reload<2;reload++){
       const result=await new F1ArchiveSource().loadQualifying(event)
@@ -195,6 +195,17 @@ describe('completed qualifying results',()=>{
     vi.stubGlobal('fetch',vi.fn(async(input:string)=>input.endsWith('Index.json')?new Response('',{status:503}):new Response(JSON.stringify({MRData:{RaceTable:{Races:[{QualifyingResults:[{number:'44',position:'2',Q3:'1:32.079',Driver:{code:'HAM',givenName:'Lewis',familyName:'Hamilton'},Constructor:{name:'Ferrari'}}]}]}}}))))
     const result=await new F1ArchiveSource().loadQualifying(event)
     expect(result?.drivers[0]).toMatchObject({status:'FINISHED',position:2,gridPosition:2,bestLap:'1:32.079'})
+  })
+
+  it('waits for finalisation before treating a static timing stream as final',async()=>{
+    vi.stubGlobal('fetch',vi.fn(async(input:string)=>{
+      if(input.endsWith('Index.json'))return new Response(JSON.stringify({Meetings:[{Name:event.meetingName,Sessions:[{Name:'Qualifying',Path:'qualifying/'}]}]}))
+      if(input.endsWith('TimingData.jsonStream'))return new Response(JSON.stringify({Lines:{'1':{Position:'1',BestLapTime:{Value:'1:32.000'}}}}))
+      if(input.endsWith('SessionData.jsonStream'))return new Response(JSON.stringify({StatusSeries:{'5':{SessionStatus:'Finished'}}}))
+      if(input.endsWith('qualifying.json'))return new Response(JSON.stringify({MRData:{RaceTable:{Races:[]}}}))
+      return new Response('')
+    }))
+    expect(await new F1ArchiveSource().loadQualifying(event)).toBeUndefined()
   })
 
   it('keeps live and inter-segment driver statuses unchanged',()=>{
