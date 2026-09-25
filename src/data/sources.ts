@@ -65,10 +65,21 @@ export function mergeFeed(state:SessionState,topic:string,data:unknown):SessionS
   if(topic==='TrackStatus'&&obj(data))next.flag=({'1':'GREEN','2':'YELLOW','4':'SC','5':'RED','6':'VSC','7':'VSC'} as Record<string,SessionState['flag']>)[String(data.Status??'1')]??next.flag
   if(topic==='ExtrapolatedClock'&&obj(data)){next.timeRemaining=String(data.Remaining??next.timeRemaining);next.clockUpdatedAt=new Date().toISOString();next.clockRunning=data.Extrapolating!==false}
   if(topic==='TimingData')normaliseOverallColours(next.drivers)
+  if((topic==='TimingData'||topic==='SessionData')&&(['Q1','Q2','Q3'].includes(next.phase)||next.sessionName.toLowerCase()==='qualifying'))updateQualifyingGaps(next)
   return next
 }
 
 function timingSeconds(value:string):number{if(!/^\d+(?::\d{2})*(?:\.\d+)?$/.test(value))return Infinity;return value.split(':').reduce((total,part)=>total*60+Number(part),0)}
+function updateQualifyingGaps(session:SessionState){
+  const limit=session.phase==='Q2'?16:session.phase==='Q3'?10:Infinity
+  const byPosition=new Map(session.drivers.map(d=>[d.position,d]))
+  for(const driver of session.drivers){
+    const ahead=byPosition.get(driver.position-1)
+    const ownTime=timingSeconds(driver.bestLap),aheadTime=timingSeconds(ahead?.bestLap??'—')
+    const difference=Math.round((ownTime-aheadTime)*1000)
+    driver.gap=driver.position>1&&driver.position<=limit&&ahead&&Number.isFinite(difference)&&difference>=0?`+${(difference/1000).toFixed(3)}`:'—'
+  }
+}
 function normaliseOverallColours(drivers:DriverTiming[]){
   for(let sector=0;sector<3;sector++){const candidates=drivers.filter(d=>d.sectors[sector]?.status==='overall').sort((a,b)=>timingSeconds(a.sectors[sector].value)-timingSeconds(b.sectors[sector].value));for(const d of candidates.slice(1))d.sectors[sector].status='personal';if(candidates[0]&&!Number.isFinite(timingSeconds(candidates[0].sectors[sector].value)))candidates[0].sectors[sector].status='normal'}
   for(const [valueKey,statusKey]of [['bestLap','bestLapStatus'],['lastLap','lastLapStatus']] as const){const candidates=drivers.filter(d=>d[statusKey]==='overall').sort((a,b)=>timingSeconds(a[valueKey])-timingSeconds(b[valueKey]));for(const d of candidates.slice(1))d[statusKey]='personal';if(candidates[0]&&!Number.isFinite(timingSeconds(candidates[0][valueKey])))candidates[0][statusKey]='normal'}
