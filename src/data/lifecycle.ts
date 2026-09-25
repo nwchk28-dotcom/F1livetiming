@@ -17,7 +17,7 @@ export function competitionFromSession(session?:SessionState,event?:RaceWeekend,
   // Segment breaks can publish Finished, Finalised or Inactive. The session
   // identity and qualifying window, not the segment status, own this screen.
   if(qualifying&&session){
-    if(session.phase==='Q3'&&session.status==='FINISHED'&&event)return'PRE_RACE'
+    if(session.phase==='Q3'&&session.status==='FINISHED'&&session.qualifyingPartStarted!==false&&event)return'PRE_RACE'
     const feedStart=Date.parse(session.sessionStart??''),feedEnd=Date.parse(session.sessionEnd??''),time=now.getTime()
     if(Number.isFinite(feedStart)&&Number.isFinite(feedEnd)&&time>=feedStart&&time<=feedEnd+3*60*60*1000)return'QUALIFYING'
     if(event){const start=new Date(event.qualifyingStart).getTime(),end=Math.min(new Date(event.raceStart).getTime(),start+3*60*60*1000);if(time>=start&&time<=end)return'QUALIFYING'}
@@ -51,6 +51,7 @@ export function applyOfficialRaceResults(session:SessionState,results:OfficialRa
 
 export function isQualifyingComplete(session:SessionState,now=Date.now()):boolean{
   if(session.status!=='FINISHED'||!session.sessionName.toLowerCase().includes('qualifying'))return false
+  if(session.phase==='Q3'&&session.qualifyingPartStarted===false)return false
   const end=Date.parse(session.sessionEnd??'')
   return Number.isFinite(end)&&now>=end-2*60*1000
 }
@@ -73,6 +74,7 @@ export function qualifyingPhaseLabel(session:SessionState,now=Date.now()):string
   if(!part)return'予選セッション情報を受信中'
   const start=Date.parse(session.sessionStart??'')
   if(part==='Q1'&&session.status!=='STARTED'&&Number.isFinite(start)&&now<start)return'Q1開始待ち'
+  if(session.qualifyingPartStarted===false&&session.status!=='STARTED')return part==='Q1'?'Q1開始待ち':`Q${Number(part.slice(1))-1}終了・${part}開始待ち`
   if(session.status==='ABORTED')return`${part} 中断中・再開待ち`
   if(session.status==='STARTED')return`${part} 進行中`
   if(session.status==='INACTIVE')return`${part}開始待ち`

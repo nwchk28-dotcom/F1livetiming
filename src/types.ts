@@ -23,6 +23,7 @@ export interface SessionState {
   updatedAt: string; drivers: DriverTiming[]; status: SessionStatus; path?: string
   clockUpdatedAt?: string; clockRunning?: boolean
   sessionStart?: string; sessionEnd?: string
+  qualifyingPartStarted?: boolean
 }
 export interface RaceWeekend {
   season: number; round: number; meetingName: string; circuit: string; locality: string; country: string
