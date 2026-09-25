@@ -17,7 +17,7 @@ export function competitionFromSession(session?:SessionState,event?:RaceWeekend,
   // Segment breaks can publish Finished, Finalised or Inactive. The session
   // identity and qualifying window, not the segment status, own this screen.
   if(qualifying&&session){
-    if(session.phase==='Q3'&&session.status==='FINISHED'&&session.qualifyingPartStarted!==false&&event)return'PRE_RACE'
+    if(session.phase==='Q3'&&session.qualifyingFinalised&&session.qualifyingPartStarted!==false&&event)return'PRE_RACE'
     const feedStart=Date.parse(session.sessionStart??''),feedEnd=Date.parse(session.sessionEnd??''),time=now.getTime()
     if(Number.isFinite(feedStart)&&Number.isFinite(feedEnd)&&time>=feedStart&&time<=feedEnd+3*60*60*1000)return'QUALIFYING'
     if(event){const start=new Date(event.qualifyingStart).getTime(),end=Math.min(new Date(event.raceStart).getTime(),start+3*60*60*1000);if(time>=start&&time<=end)return'QUALIFYING'}
@@ -49,11 +49,8 @@ export function applyOfficialRaceResults(session:SessionState,results:OfficialRa
   return{...session,status:'FINISHED',phase:'FINISHED',drivers:results.map(r=>{const live=byNumber[r.number];return{...(live??{position:r.position,previousPosition:r.position,gridPosition:r.gridPosition,number:r.number,code:r.number,fullName:`CAR ${r.number}`,team:'',teamColor:'#aeb3bc',bestLap:'—',lastLap:'—',gap:'—',interval:'—',sectors:[],tyre:{compound:'SOFT' as const,laps:0},pitStops:0,status:r.status}),position:r.position,previousPosition:live?.position??r.position,gridPosition:r.gridPosition,status:r.status,gap:r.gap,interval:r.interval,points:r.points,bestLap:r.bestLap??live?.bestLap??'—'}})}
 }
 
-export function isQualifyingComplete(session:SessionState,now=Date.now()):boolean{
-  if(session.status!=='FINISHED'||!session.sessionName.toLowerCase().includes('qualifying'))return false
-  if(session.phase==='Q3'&&session.qualifyingPartStarted===false)return false
-  const end=Date.parse(session.sessionEnd??'')
-  return Number.isFinite(end)&&now>=end-2*60*1000
+export function isQualifyingComplete(session:SessionState):boolean{
+  return session.sessionName.toLowerCase().includes('qualifying')&&session.phase==='Q3'&&session.qualifyingPartStarted!==false&&session.qualifyingFinalised===true
 }
 
 export function sessionTimeRemaining(session:SessionState,now=Date.now()):string{
@@ -71,7 +68,10 @@ export function shouldProjectChampionship(competition:CompetitionState,status:Se
 
 export function displayedSessionFlag(session:SessionState,competition:CompetitionState):SessionState['flag']|'STANDBY'{
   if(competition==='IDLE'||competition==='PRE_RACE')return'STANDBY'
-  if(competition==='QUALIFYING'&&(session.status==='INACTIVE'||session.status==='FINISHED'))return'STANDBY'
+  if(competition==='QUALIFYING'&&(session.status==='INACTIVE'||session.status==='FINISHED')){
+    if(session.phase==='Q3'&&session.qualifyingPartStarted===true&&!session.qualifyingFinalised&&session.status==='FINISHED')return'CHEQUERED'
+    return'STANDBY'
+  }
   if(competition==='QUALIFYING'&&session.status==='STARTED'&&session.flag==='CHEQUERED'){
     const clock=sessionTimeRemaining(session).match(/^(\d+):(\d{2}):(\d{2})/)
     if(clock&&Number(clock[1])*3600+Number(clock[2])*60+Number(clock[3])>0)return session.trackFlag??'GREEN'
@@ -88,7 +88,7 @@ export function qualifyingPhaseLabel(session:SessionState,now=Date.now()):string
   if(session.status==='ABORTED')return`${part} 中断中・再開待ち`
   if(session.status==='STARTED')return`${part} 進行中`
   if(session.status==='INACTIVE')return`${part}開始待ち`
-  if(part==='Q3')return'Q3終了・予選終了'
+  if(part==='Q3')return session.qualifyingFinalised?'Q3終了・予選終了':'Q3 チェッカー・最終アタック中'
   return`${part}終了・Q${Number(part.slice(1))+1}開始待ち`
 }
 

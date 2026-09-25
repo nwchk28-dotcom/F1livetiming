@@ -25,6 +25,7 @@ export interface SessionState {
   clockUpdatedAt?: string; clockRunning?: boolean
   sessionStart?: string; sessionEnd?: string
   qualifyingPartStarted?: boolean
+  qualifyingFinalised?: boolean
 }
 export interface RaceWeekend {
   season: number; round: number; meetingName: string; circuit: string; locality: string; country: string

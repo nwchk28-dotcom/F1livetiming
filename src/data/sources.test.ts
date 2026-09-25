@@ -56,6 +56,17 @@ describe('SignalR packets',()=>{
     state=mergeFeed(state,'SessionData',{StatusSeries:{'3':{SessionStatus:'Finished'}}})
     expect(state).toMatchObject({phase:'Q3',status:'FINISHED',qualifyingPartStarted:true})
   })
+  it('does not finalise Q3 when its countdown finishes before the last lap',()=>{
+    let state=mergeFeed(emptySession(),'SessionInfo',{Name:'Qualifying'})
+    state=mergeFeed(state,'SessionData',{Series:[{QualifyingPart:1},{QualifyingPart:2},{QualifyingPart:3}],StatusSeries:[{SessionStatus:'Started'},{SessionStatus:'Finished'},{SessionStatus:'Started'},{SessionStatus:'Finished'},{SessionStatus:'Started'},{SessionStatus:'Finished'}]})
+    expect(state).toMatchObject({phase:'Q3',status:'FINISHED',qualifyingPartStarted:true,qualifyingFinalised:false})
+    state=mergeFeed(state,'TimingData',{Lines:{'1':{Position:'1',BestLapTime:{Value:'1:19.250'}}}})
+    expect(state.qualifyingFinalised).toBe(false)
+    state=mergeFeed(state,'SessionData',{StatusSeries:{'6':{SessionStatus:'Finalised'}}})
+    expect(state.qualifyingFinalised).toBe(true)
+    const restored=mergeSignalRCoreFrame(emptySession(),JSON.stringify({type:3,result:{SessionInfo:{Name:'Qualifying'},SessionData:{Series:[{QualifyingPart:1},{QualifyingPart:2},{QualifyingPart:3}],StatusSeries:[{SessionStatus:'Started'},{SessionStatus:'Finished'},{SessionStatus:'Started'},{SessionStatus:'Finished'},{SessionStatus:'Started'},{SessionStatus:'Finished'},{SessionStatus:'Finalised'}]},TimingData:{SessionPart:3,Lines:{}}}})+'\x1e')
+    expect(restored).toMatchObject({phase:'Q3',qualifyingPartStarted:true,qualifyingFinalised:true})
+  })
   it('restores the correct part from a qualifying subscription snapshot',()=>{
     const base={SessionInfo:{Name:'Qualifying'},TimingData:{SessionPart:3,Lines:{}}}
     const status=(items:string[])=>({type:3,result:{...base,SessionData:{Series:[{QualifyingPart:1},{QualifyingPart:2},{QualifyingPart:3}],StatusSeries:items.map(SessionStatus=>({SessionStatus}))}}})
