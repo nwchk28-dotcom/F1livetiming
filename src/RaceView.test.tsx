@@ -20,3 +20,12 @@ it('shows static colour and arrows without history, reserving space after expiry
   rerender(<RaceView session={{...session,status:'FINISHED'}} changes={changes}/>)
   expect(container.querySelector('.position-up')).toBeNull()
 })
+it('shows pit during the race and chequered after the finish',()=>{
+  let session=mergeFeed(emptySession(),'SessionInfo',{Name:'Race'})
+  session=mergeFeed(session,'TimingData',{Lines:{'1':{Position:'1',InPit:true}}})
+  const {container,rerender}=render(<RaceView session={{...session,status:'STARTED'}} changes={{}}/>)
+  expect(container.querySelector('[data-driver="1"] .driver-status')?.textContent).toBe('PIT')
+  session=mergeFeed(session,'SessionData',{StatusSeries:{'0':{SessionStatus:'Finished'}}})
+  rerender(<RaceView session={session} changes={{}}/>)
+  expect(container.querySelector('[data-driver="1"] .driver-status')?.textContent).toBe('CHEQUERED')
+})
