@@ -20,6 +20,7 @@ export interface SessionState {
   sessionFinishedAt?: string
   meetingName: string; circuit: string; sessionName: string; phase: SessionPhase
   timeRemaining: string; lap: number; totalLaps: number; flag: 'GREEN' | 'YELLOW' | 'RED' | 'SC' | 'VSC' | 'CHEQUERED'
+  trackFlag?: 'GREEN' | 'YELLOW' | 'RED' | 'SC' | 'VSC'
   updatedAt: string; drivers: DriverTiming[]; status: SessionStatus; path?: string
   clockUpdatedAt?: string; clockRunning?: boolean
   sessionStart?: string; sessionEnd?: string

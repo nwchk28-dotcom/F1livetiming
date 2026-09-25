@@ -69,6 +69,16 @@ export function sessionTimeRemaining(session:SessionState,now=Date.now()):string
 
 export function shouldProjectChampionship(competition:CompetitionState,status:SessionState['status']):boolean{return competition==='RACE'&&(status==='STARTED'||status==='ABORTED')}
 
+export function displayedSessionFlag(session:SessionState,competition:CompetitionState):SessionState['flag']|'STANDBY'{
+  if(competition==='IDLE'||competition==='PRE_RACE')return'STANDBY'
+  if(competition==='QUALIFYING'&&(session.status==='INACTIVE'||session.status==='FINISHED'))return'STANDBY'
+  if(competition==='QUALIFYING'&&session.status==='STARTED'&&session.flag==='CHEQUERED'){
+    const clock=sessionTimeRemaining(session).match(/^(\d+):(\d{2}):(\d{2})/)
+    if(clock&&Number(clock[1])*3600+Number(clock[2])*60+Number(clock[3])>0)return session.trackFlag??'GREEN'
+  }
+  return session.flag
+}
+
 export function qualifyingPhaseLabel(session:SessionState,now=Date.now()):string{
   const part=['Q1','Q2','Q3'].includes(session.phase)?session.phase:undefined
   if(!part)return'予選セッション情報を受信中'
