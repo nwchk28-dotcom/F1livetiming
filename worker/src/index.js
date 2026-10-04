@@ -27,7 +27,7 @@ async function proxyStatic(request,url){
   const headers=new Headers(upstream.headers)
   headers.set('Access-Control-Allow-Origin',origin||'https://nwchk28-dotcom.github.io')
   headers.set('Vary','Origin')
-  headers.set('Cache-Control',path.endsWith('Index.json')?'public, max-age=60':'public, max-age=3600')
+  headers.set('Cache-Control',path.includes('TimingAppData.')?'no-store':path.endsWith('Index.json')?'public, max-age=30':'public, max-age=3600')
   return new Response(upstream.body,{status:upstream.status,headers})
 }
 

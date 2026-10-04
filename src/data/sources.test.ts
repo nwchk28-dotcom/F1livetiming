@@ -218,5 +218,38 @@ describe('completed qualifying results',()=>{
 })
 
 describe('official starting grid',()=>{
-  it('includes Italian GP grid penalties',async()=>{const grid=await new F1ArchiveSource().loadGrid({season:2026,round:13,meetingName:'Italian Grand Prix',circuit:'Monza',locality:'Monza',country:'Italy',qualifyingStart:'',raceStart:'',timeZone:'Europe/Rome'});expect(grid['12']).toBe(19);expect(grid['81']).toBe(6)})
+  const event={season:2026,round:4,meetingName:'Bahrain Grand Prix',circuit:'Sakhir',locality:'Sakhir',country:'Bahrain',qualifyingStart:'2026-04-11T16:00:00Z',raceStart:'2026-04-12T15:00:00Z',timeZone:'Asia/Bahrain'}
+  afterEach(()=>{vi.unstubAllGlobals();localStorage.clear()})
+
+  it('picks up a published penalty grid on the next poll without caching the old grid',async()=>{
+    let published=false
+    const fetcher=vi.fn(async(input:string)=>{
+      if(input.endsWith('Index.json'))return new Response(JSON.stringify({Meetings:[]}))
+      if(input.includes('/sessions?'))return new Response(JSON.stringify([{session_key:123,session_name:'Race',date_start:event.raceStart},{session_key:124,session_name:'Sprint',date_start:event.raceStart}]))
+      if(input.includes('/starting_grid?'))return new Response(JSON.stringify(published?[{driver_number:6,position:6,session_key:123}]:[]))
+      return new Response(JSON.stringify({MRData:{RaceTable:{Races:[]}}}))
+    })
+    vi.stubGlobal('fetch',fetcher)
+    const source=new F1ArchiveSource()
+    expect(await source.loadGrid(event)).toEqual({})
+    published=true
+    expect(await source.loadGrid(event)).toEqual({'6':6})
+    expect(fetcher.mock.calls.filter(([url])=>url.includes('/starting_grid?'))).toHaveLength(2)
+  })
+
+  it('uses explicit GridPos and reads late stream corrections, never running positions',async()=>{
+    vi.stubGlobal('fetch',vi.fn(async(input:string)=>{
+      if(input.endsWith('Index.json'))return new Response(JSON.stringify({Meetings:[{Name:event.meetingName,Sessions:[{Name:'Race',Path:'race/'}]}]}))
+      if(input.endsWith('TimingAppData.json'))return new Response('',{status:404})
+      if(input.endsWith('TimingAppData.jsonStream'))return new Response([JSON.stringify({Lines:{'6':{GridPos:'3'},'44':{GridPos:'0'},'1':{GridPos:null}}}),...Array(100).fill('{}'),JSON.stringify({Lines:{'6':{GridPos:'6'}}})].join('\n'))
+      if(input.includes('/sessions?'))return new Response('[]')
+      throw new Error('unexpected running order request')
+    }))
+    expect(await new F1ArchiveSource().loadGrid(event)).toEqual({'6':6,'44':0})
+  })
+
+  it('falls back to race results when the grid feeds are unavailable',async()=>{
+    vi.stubGlobal('fetch',vi.fn(async(input:string)=>input.endsWith('/results.json')?new Response(JSON.stringify({MRData:{RaceTable:{Races:[{Results:[{number:'6',position:'2',grid:'6',laps:'57',status:'Finished',points:'18'}]}]}}})):new Response('',{status:503})))
+    expect(await new F1ArchiveSource().loadGrid(event)).toEqual({'6':6})
+  })
 })
