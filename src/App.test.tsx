@@ -1,5 +1,5 @@
 import {afterEach,expect,it,vi} from 'vitest'
-import {act,cleanup,render,screen} from '@testing-library/react'
+import {act,cleanup,fireEvent,render,screen,within} from '@testing-library/react'
 import App from './App'
 import {emptySession,F1ArchiveSource,F1SignalRSource,JolpicaDataSource,mergeFeed} from './data/sources'
 
@@ -19,6 +19,8 @@ it('automatically updates a published penalty grid while qualifying retrieval is
   const grid=vi.spyOn(F1ArchiveSource.prototype,'loadGrid').mockResolvedValueOnce({}).mockResolvedValue({'6':6})
   const {container}=render(<App/> )
   await act(async()=>{})
+  expect(screen.getByRole('heading',{name:'レースウィーク日程'})).toBeTruthy()
+  fireEvent.click(within(screen.getByRole('navigation',{name:'画面切り替え'})).getByRole('button',{name:'予選'}))
   expect([...container.querySelectorAll('tbody .position')].map(cell=>cell.textContent)).toEqual(['3','3'])
   await act(async()=>{await vi.advanceTimersByTimeAsync(30000)})
   expect(grid).toHaveBeenCalledTimes(2)
@@ -26,7 +28,7 @@ it('automatically updates a published penalty grid while qualifying retrieval is
   expect(container.querySelector('.grid-change')?.textContent).toContain('▼ 3')
 })
 
-it('opens sprint race timing and highlights live overtakes without main race grids',async()=>{
+it('starts on the schedule even during a sprint and highlights overtakes after selecting sprint timing',async()=>{
  vi.useFakeTimers()
  vi.setSystemTime(new Date('2026-10-10T09:10:00Z'))
  const sprintEvent={...event,round:17,meetingName:'Singapore Grand Prix',qualifyingStart:'2026-10-10T13:00:00Z',raceStart:'2026-10-11T12:00:00Z',sprintQualifyingStart:'2026-10-09T12:30:00Z',sprintStart:'2026-10-10T09:00:00Z'}
@@ -42,6 +44,9 @@ it('opens sprint race timing and highlights live overtakes without main race gri
  vi.spyOn(F1SignalRSource.prototype,'connect').mockImplementation(async(onState)=>{publish=onState;onState(session);return()=>{}})
  const {container}=render(<App/>)
  await act(async()=>{await vi.advanceTimersByTimeAsync(350)})
+ expect(screen.getByRole('heading',{name:'レースウィーク日程'})).toBeTruthy()
+ expect(container.querySelector('.view-tabs > button.active')?.textContent).toBe('日程')
+ fireEvent.click(within(screen.getByRole('navigation',{name:'画面切り替え'})).getByRole('button',{name:'スプリント決勝'}))
  expect(screen.getByRole('heading',{name:'スプリント決勝順位'})).toBeTruthy()
  expect(container.querySelector('tr[data-driver="1"]')?.children[1].textContent).toBe('1')
  session=mergeFeed(session,'TimingData',{Lines:{1:{Position:'2'},2:{Position:'1'}}})

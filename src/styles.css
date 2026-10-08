@@ -77,3 +77,24 @@
   .view-tabs > button[data-view="sprintRace"] { order: 6; }
   .view-tabs > button[data-view="championship"] { font-size: 10px; }
 }
+
+@media (max-width: 600px) {
+  .app-shell {
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+  .view-tabs .tab-actions {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 30;
+    height: calc(54px + env(safe-area-inset-bottom, 0px));
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    justify-content: space-between;
+    background: #0b0e12;
+    border-top: 1px solid var(--line);
+    border-bottom: 0;
+  }
+  .view-tabs .tab-actions .last-updated,
+  .view-tabs .tab-actions .action-label {
+    font-size: 10px;
+  }
+}
