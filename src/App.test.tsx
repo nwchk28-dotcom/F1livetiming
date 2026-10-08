@@ -1,5 +1,5 @@
 import {afterEach,expect,it,vi} from 'vitest'
-import {act,cleanup,render} from '@testing-library/react'
+import {act,cleanup,render,screen} from '@testing-library/react'
 import App from './App'
 import {emptySession,F1ArchiveSource,F1SignalRSource,JolpicaDataSource,mergeFeed} from './data/sources'
 
@@ -24,4 +24,29 @@ it('automatically updates a published penalty grid while qualifying retrieval is
   expect(grid).toHaveBeenCalledTimes(2)
   expect([...container.querySelectorAll('tbody .position')].map(cell=>cell.textContent)).toEqual(['3','6'])
   expect(container.querySelector('.grid-change')?.textContent).toContain('▼ 3')
+})
+
+it('opens sprint race timing and highlights live overtakes without main race grids',async()=>{
+ vi.useFakeTimers()
+ vi.setSystemTime(new Date('2026-10-10T09:10:00Z'))
+ const sprintEvent={...event,round:17,meetingName:'Singapore Grand Prix',qualifyingStart:'2026-10-10T13:00:00Z',raceStart:'2026-10-11T12:00:00Z',sprintQualifyingStart:'2026-10-09T12:30:00Z',sprintStart:'2026-10-10T09:00:00Z'}
+ vi.spyOn(JolpicaDataSource.prototype,'getSeasonSchedule').mockResolvedValue([sprintEvent])
+ vi.spyOn(JolpicaDataSource.prototype,'getDriverStandings').mockResolvedValue([])
+ vi.spyOn(JolpicaDataSource.prototype,'getConstructorStandings').mockResolvedValue([])
+ const grid=vi.spyOn(F1ArchiveSource.prototype,'loadGrid').mockResolvedValue({'1':15})
+ let publish:(s:ReturnType<typeof emptySession>)=>void=()=>{}
+ let session=mergeFeed(emptySession(),'SessionInfo',{Name:'Sprint',Meeting:{Name:sprintEvent.meetingName},Path:'2026/singapore/sprint/'})
+ session=mergeFeed(session,'SessionData',{StatusSeries:{0:{SessionStatus:'Started'}}})
+ session=mergeFeed(session,'TimingData',{Lines:{1:{Position:'1'},2:{Position:'2'}}})
+ session=mergeFeed(session,'TimingAppData',{Lines:{1:{GridPos:'1'},2:{GridPos:'2'}}})
+ vi.spyOn(F1SignalRSource.prototype,'connect').mockImplementation(async(onState)=>{publish=onState;onState(session);return()=>{}})
+ const {container}=render(<App/>)
+ await act(async()=>{await vi.advanceTimersByTimeAsync(350)})
+ expect(screen.getByRole('heading',{name:'スプリント決勝順位'})).toBeTruthy()
+ expect(container.querySelector('tr[data-driver="1"]')?.children[1].textContent).toBe('1')
+ session=mergeFeed(session,'TimingData',{Lines:{1:{Position:'2'},2:{Position:'1'}}})
+ await act(async()=>{publish(session)})
+ await act(async()=>{await vi.advanceTimersByTimeAsync(350)})
+ expect(container.querySelector('tr[data-driver="2"]')?.className).toBe('position-up')
+ expect(grid).not.toHaveBeenCalled()
 })

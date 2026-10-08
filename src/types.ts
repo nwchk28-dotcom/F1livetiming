@@ -1,4 +1,4 @@
-export type View = 'qualifying' | 'race' | 'championship'
+export type View = 'qualifying' | 'race' | 'championship' | 'sprintQualifying' | 'sprintRace' | 'schedule'
 export type FeedMode = 'LIVE' | 'REPLAY' | 'OFFLINE' | 'CONNECTING'
 export type SessionPhase = 'Q1' | 'Q2' | 'Q3' | 'RACE' | 'FINISHED'
 export type CompetitionState = 'IDLE' | 'QUALIFYING' | 'PRE_RACE' | 'RACE'
@@ -27,9 +27,12 @@ export interface SessionState {
   qualifyingPartStarted?: boolean
   qualifyingFinalised?: boolean
 }
+export interface WeekendSession { name: string; start?: string; kind: 'practice' | 'qualifying' | 'race' | 'sprintQualifying' | 'sprintRace' }
 export interface RaceWeekend {
   season: number; round: number; meetingName: string; circuit: string; locality: string; country: string
   qualifyingStart: string; raceStart: string; timeZone: string
+  sessions?: WeekendSession[]
+  sprintQualifyingStart?: string; sprintStart?: string
 }
 export interface WeekendState {
   competition: CompetitionState; event?: RaceWeekend; nextEvent?: RaceWeekend

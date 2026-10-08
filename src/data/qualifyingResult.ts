@@ -1,4 +1,5 @@
 import type {RaceWeekend,SessionState} from '../types'
+import {isSprintQualifying} from './sprint'
 import {isQualifyingComplete} from './lifecycle'
 
 const KEY='f1-final-qualifying-v1'
@@ -6,7 +7,7 @@ const RETENTION=48*60*60*1000
 type SavedResult={season:number;round:number;raceStart:string;session:SessionState}
 
 export function finalQualifyingSession(session:SessionState):SessionState|undefined{
-  if(!isQualifyingComplete(session)||!session.drivers.some(driver=>driver.position<99))return undefined
+  if(isSprintQualifying(session.sessionName)||!isQualifyingComplete(session)||!session.drivers.some(driver=>driver.position<99))return undefined
   return {...session,drivers:session.drivers.map(driver=>({...driver,status:driver.status==='OUT'?'OUT' as const:'FINISHED' as const,timingImprovedAt:undefined}))}
 }
 
