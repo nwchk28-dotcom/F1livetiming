@@ -2,7 +2,7 @@ import {afterEach,expect,it,vi} from 'vitest'
 import {cleanup,fireEvent,render,screen} from '@testing-library/react'
 import {ScheduleView} from './ScheduleView'
 import {emptySession} from './data/sources'
-import type {RaceWeekend} from './types'
+import type {RaceWeekend,SessionState} from './types'
 afterEach(()=>{cleanup();vi.restoreAllMocks();vi.useRealTimers()})
 it('selects future weekends and displays sprint sessions in Japan time',()=>{
  vi.useFakeTimers()
@@ -47,4 +47,20 @@ it('selects the next GP when this week has no remaining race, including after re
  unmount()
  render(<ScheduleView {...props}/>)
  expect(screen.getByRole('button',{name:/GP 18/}).getAttribute('aria-pressed')).toBe('true')
+})
+
+it('renders sprint segment waiting until the full qualifying session is finalised',()=>{
+ vi.useFakeTimers()
+ vi.setSystemTime(new Date('2026-10-09T12:50:00Z'))
+ const event={...scheduledEvent(17,'2026-10-11T12:00:00Z'),sessions:[{name:'スプリント予選',kind:'sprintQualifying' as const,start:'2026-10-09T12:30:00Z'}]}
+ const session:SessionState={...emptySession(),meetingName:event.meetingName,sessionName:'Sprint Qualifying',phase:'Q1',status:'FINISHED',qualifyingPartStarted:true}
+ const props={schedule:[event],currentEvent:event,onSelectSession:()=>{}}
+ const {rerender}=render(<ScheduleView {...props} session={session}/>)
+ expect(screen.getByText('SQ1終了・SQ2開始待ち')).toBeTruthy()
+ expect(screen.queryByText('終了')).toBeNull()
+ rerender(<ScheduleView {...props} session={{...session,phase:'Q3'}}/>)
+ expect(screen.getByText('SQ3 チェッカー・最終アタック中')).toBeTruthy()
+ expect(screen.queryByText('終了')).toBeNull()
+ rerender(<ScheduleView {...props} session={{...session,phase:'Q3',qualifyingFinalised:true}}/>)
+ expect(screen.getByText('終了')).toBeTruthy()
 })
