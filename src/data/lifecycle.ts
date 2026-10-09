@@ -50,6 +50,15 @@ export function applyOfficialRaceResults(session:SessionState,results:OfficialRa
   return{...session,status:'FINISHED',phase:'FINISHED',drivers:results.map(r=>{const live=byNumber[r.number];return{...(live??{position:r.position,previousPosition:r.position,gridPosition:r.gridPosition,number:r.number,code:r.number,fullName:`CAR ${r.number}`,team:'',teamColor:'#aeb3bc',bestLap:'—',lastLap:'—',gap:'—',interval:'—',sectors:[],tyre:{compound:'SOFT' as const,laps:0},pitStops:0,status:r.status}),position:r.position,previousPosition:live?.position??r.position,gridPosition:r.gridPosition,status:r.status,gap:r.gap,interval:r.interval,points:r.points,bestLap:r.bestLap??live?.bestLap??'—'}})}
 }
 
+export function hasQualifyingEnded(session:SessionState):boolean {
+  const name=session.sessionName.toLowerCase()
+  if(!(/qualifying|sprint shootout/.test(name))||session.phase!=='Q3'||session.qualifyingPartStarted===false)return false
+  if(session.qualifyingFinalised===true)return true
+  if(session.status==='ABORTED'||session.flag==='RED')return false
+  const chequered=session.flag==='CHEQUERED'||session.status==='FINISHED'
+  return chequered&&session.drivers.some(d=>d.status==='PIT')&&session.drivers.every(d=>d.status==='PIT'||d.status==='OUT'||d.status==='FINISHED')
+}
+
 export function isQualifyingComplete(session:SessionState):boolean{
   return session.sessionName.toLowerCase().includes('qualifying')&&session.phase==='Q3'&&session.qualifyingPartStarted!==false&&session.qualifyingFinalised===true
 }
@@ -83,6 +92,7 @@ export function displayedSessionFlag(session:SessionState,competition:Competitio
 export function qualifyingPhaseLabel(session:SessionState,now=Date.now()):string{
   const part=['Q1','Q2','Q3'].includes(session.phase)?session.phase:undefined
   if(!part)return'予選セッション情報を受信中'
+  if(hasQualifyingEnded(session))return'Q3終了・予選終了'
   const start=Date.parse(session.sessionStart??'')
   if(part==='Q1'&&session.status!=='STARTED'&&Number.isFinite(start)&&now<start)return'Q1開始待ち'
   if(session.qualifyingPartStarted===false&&session.status!=='STARTED')return part==='Q1'?'Q1開始待ち':`Q${Number(part.slice(1))-1}終了・${part}開始待ち`

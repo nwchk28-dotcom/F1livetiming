@@ -1,5 +1,5 @@
 import type {SessionState,WeekendSession} from '../types'
-import {qualifyingPhaseLabel} from './lifecycle'
+import {hasQualifyingEnded,qualifyingPhaseLabel} from './lifecycle'
 
 /** Finished can mean a qualifying segment has ended, not the whole session. */
 export function scheduleSessionStatus(row:WeekendSession,session:SessionState,sameEvent:boolean,now:number):string {
@@ -12,7 +12,7 @@ export function scheduleSessionStatus(row:WeekendSession,session:SessionState,sa
   const matches=row.kind==='practice'?Boolean(practicePart&&[ `practice ${practicePart}`,`free practice ${practicePart}` ].includes(name)):Boolean(names[row.kind]?.includes(name))
   if(sameEvent&&matches){
     if(row.kind==='qualifying'||row.kind==='sprintQualifying'){
-      if(session.phase==='Q3'&&session.qualifyingFinalised===true&&session.qualifyingPartStarted!==false)return '終了'
+      if(hasQualifyingEnded(session))return '終了'
       const completedPart=session.status==='INACTIVE'&&session.qualifyingPartStarted===true&&['Q1','Q2','Q3'].includes(session.phase)
       const label=completedPart?(session.phase==='Q3'?'Q3終了・結果確定待ち':`${session.phase}終了・Q${Number(session.phase.slice(1))+1}開始待ち`):qualifyingPhaseLabel(session,now)
       return row.kind==='sprintQualifying'?label.replace(/Q([123])/g,'SQ$1'):label

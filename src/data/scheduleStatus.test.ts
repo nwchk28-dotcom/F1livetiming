@@ -54,3 +54,20 @@ it('uses real feed segment and finalisation messages',()=>{
  session=mergeFeed(session,'SessionData',{StatusSeries:{4:{SessionStatus:'Finalised'}}})
  expect(scheduleSessionStatus(row,session,true,now)).toBe('終了')
 })
+
+it.each(['Qualifying','Sprint Qualifying','Sprint Shootout'])('ends %s after the final chequered flag when all cars are in pit',sessionName=>{
+ const row:WeekendSession={name:'予選',kind:sessionName==='Qualifying'?'qualifying':'sprintQualifying',start}
+ let session=mergeFeed(emptySession(),'SessionInfo',{Name:sessionName})
+ session=mergeFeed(session,'TimingData',{SessionPart:3,Lines:{1:{Position:'1',InPit:true},2:{Position:'2',InPit:false}}})
+ session={...session,status:'FINISHED',flag:'CHEQUERED',qualifyingPartStarted:true}
+ expect(scheduleSessionStatus(row,session,true,now)).toContain('最終アタック中')
+ session=mergeFeed(session,'TimingData',{Lines:{2:{InPit:true}}})
+ expect(scheduleSessionStatus(row,session,true,now)).toBe('終了')
+ expect(scheduleSessionStatus(row,{...session,phase:'Q1'},true,now)).not.toBe('終了')
+ expect(scheduleSessionStatus(row,{...session,phase:'Q2'},true,now)).not.toBe('終了')
+ expect(scheduleSessionStatus(row,{...session,status:'ABORTED',flag:'RED'},true,now)).toContain('再開待ち')
+ expect(scheduleSessionStatus(row,{...session,status:'STARTED',flag:'GREEN'},true,now)).not.toBe('終了')
+ expect(scheduleSessionStatus(row,{...session,drivers:[]},true,now)).not.toBe('終了')
+ expect(scheduleSessionStatus(row,{...session,qualifyingPartStarted:false},true,now)).not.toBe('終了')
+ expect(scheduleSessionStatus(row,{...session,drivers:session.drivers.map((d,i)=>({...d,status:i===0?'PIT':'OUT'}))},true,now)).toBe('終了')
+})
