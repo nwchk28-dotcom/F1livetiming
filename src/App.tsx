@@ -5,6 +5,7 @@ import type { ChampionshipProjection,CompetitionState,ConnectionState,DriverTimi
 import { applyOfficialRaceResults,applyRaceGrid,attachGrid,competitionFromSession,displayedSessionFlag,isQualifyingComplete,qualifyingPhaseLabel,selectCurrentEvent,selectNextEvent,sessionTimeRemaining,shouldProjectChampionship } from './data/lifecycle'
 import { isSprintQualifying,isSprintRace,sprintCompetition } from './data/sprint'
 import { ScheduleView } from './ScheduleView'
+import {shouldReconnectForScheduledSession} from './data/sessionReconnect'
 import { projectConstructors,projectDriverStandings } from './data/scoring'
 import { emptySession,F1ArchiveSource,F1SignalRSource,hasValidLapTime,JolpicaDataSource } from './data/sources'
 import {bestAvailableQualifying,finalQualifyingSession,pruneFinalQualifying,qualifyingBelongsToEvent,readFinalQualifying,saveArchivedQualifying,saveFinalQualifying} from './data/qualifyingResult'
@@ -31,6 +32,13 @@ export default function App(){
   const lifecycleSession=liveSessionIsCurrent&&!sprint&&(session.sessionName.toLowerCase().includes('qualifying')||(session.sessionName.toLowerCase()==='race'&&session.status!=='INACTIVE'))?session:storedResult??emptySession()
   const competition=competitionFromSession(lifecycleSession,currentEvent,new Date(lifecycleNow)),nextEvent=selectNextEvent(schedule,new Date(lifecycleNow)),displayFlag=displayedSessionFlag(session,competition)
   const shouldLoadResults=Boolean(currentEvent&&(competition==='PRE_RACE'||competition==='RACE'||competition==='IDLE'&&lifecycleNow>=Date.parse(currentEvent.qualifyingStart)+3*60*60*1000))
+  const awaitingScheduledSession=shouldReconnectForScheduledSession(currentEvent,session,lifecycleNow)
+  useEffect(()=>{
+    if(!awaitingScheduledSession)return
+    const timer=window.setInterval(()=>setReconnectKey(k=>k+1),30000)
+    return()=>window.clearInterval(timer)
+  },[awaitingScheduledSession,currentEventKey])
+
 
   useEffect(()=>{pruneFinalQualifying();const timer=window.setInterval(pruneFinalQualifying,60*60*1000);return()=>window.clearInterval(timer)},[])
   useEffect(()=>{let active=true,finishTimer:number|undefined;const season=new Date().getFullYear(),started=Date.now();setScheduleError(false);Promise.allSettled([dataSource.getSeasonSchedule(season),dataSource.getDriverStandings(season),dataSource.getConstructorStandings(season)]).then(([s,d,c])=>{if(!active)return;const succeeded=s.status==='fulfilled'||d.status==='fulfilled'||c.status==='fulfilled';if(s.status==='fulfilled')setSchedule(s.value);else setScheduleError(true);if(d.status==='fulfilled')setDriverBase(d.value);if(c.status==='fulfilled')setConstructorBase(c.value);const finish=()=>{if(!active)return;if(succeeded)setLastUpdatedAt(new Date().toISOString());setIsRefreshing(false)};finishTimer=window.setTimeout(finish,Math.max(0,650-(Date.now()-started)))});return()=>{active=false;if(finishTimer)window.clearTimeout(finishTimer)}},[dataRefreshKey])
@@ -117,4 +125,4 @@ function dateTime(value:string,zone:string){return new Intl.DateTimeFormat('ja-J
 function timeLabel(v?:string){if(!v)return'—';return new Intl.DateTimeFormat('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date(v))}
 function useSecondTick(){const[now,setNow]=useState(Date.now());useEffect(()=>{const id=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(id)},[]);return now}
 
-function SessionWaiting({title,start,unavailable="開催日程が未発表、またはスプリントのない大会です。"}:{title:string;start?:string;unavailable?:string}){return <section className="empty-state compact"><CalendarClock/><h1>{title}</h1><p>{start?`開始予定（日本時間）：${dateTime(start,'Asia/Tokyo')}`:unavailable}</p><p>セッション開始後、ライブタイミングを自動表示します。</p></section>}
+function SessionWaiting({title,start,unavailable="開催日程が未発表、またはスプリントのない大会です。"}:{title:string;start?:string;unavailable?:string}){return <section className="empty-state compact"><CalendarClock/><h1>{title}</h1><p>{start?`開始予定（日本時間）：${dateTime(start,'Asia/Tokyo')}`:unavailable}</p><p>{start&&Date.parse(start)<=Date.now()?'開始予定時刻を過ぎています。ライブデータの受信を待っています。':'セッション開始後、ライブタイミングを自動表示します。'}</p></section>}
