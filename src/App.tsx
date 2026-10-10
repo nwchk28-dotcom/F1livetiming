@@ -53,13 +53,26 @@ export default function App(){
   },[shouldLoadResults,currentEventKey,reconnectKey])
   useEffect(()=>{if(session.status!=='FINISHED'||!raceResults.length)return;const season=new Date().getFullYear();localStorage.removeItem(`f1-drivers-${season}`);localStorage.removeItem(`f1-teams-${season}`);setDataRefreshKey(k=>k+1)},[session.status,raceResults.length])
 
+  useEffect(()=>{
+    if(!isSprintRace(session.sessionName)||session.status!=='FINISHED')return
+    const refresh=()=>{
+      const season=new Date().getFullYear()
+      localStorage.removeItem(`f1-drivers-${season}`)
+      localStorage.removeItem(`f1-teams-${season}`)
+      setDataRefreshKey(k=>k+1)
+    }
+    refresh()
+    const timer=window.setInterval(refresh,30000)
+    return()=>window.clearInterval(timer)
+  },[session.sessionName,session.status])
+
   const reconnect=useCallback(()=>{if(isRefreshing)return;setIsRefreshing(true);setConnection({mode:'CONNECTING',attempt:0,message:'実データを再取得中'});setDataRefreshKey(k=>k+1);setReconnectKey(k=>k+1)},[isRefreshing])
   const qualifyingForRace=useMemo(()=>qualifyingResult?attachGrid(qualifyingResult,grid):undefined,[qualifyingResult,grid])
   const raceForDisplay=useMemo(()=>applyOfficialRaceResults(applyRaceGrid(session,grid),session.status==='FINISHED'?raceResults:[]),[session,grid,raceResults])
   const positionChanges=usePositionChanges(raceForDisplay,positionEpoch)
   const sprintPositionChanges=usePositionChanges(session,positionEpoch)
-  const projecting=shouldProjectChampionship(competition,session.status)
-  const projectedDrivers=useMemo(()=>projecting?projectDriverStandings(driverBase,session.drivers):asConfirmed(driverBase),[projecting,driverBase,session.drivers])
+  const projecting=liveSessionIsCurrent&&shouldProjectChampionship(isSprintRace(session.sessionName)?sprintState:competition,session.status)
+  const projectedDrivers=useMemo(()=>projecting?projectDriverStandings(driverBase,session.drivers,isSprintRace(session.sessionName)):asConfirmed(driverBase),[projecting,driverBase,session.drivers])
   const projectedTeams=useMemo(()=>projecting?projectConstructors(constructorBase,projectedDrivers):asConfirmed(constructorBase),[projecting,constructorBase,projectedDrivers])
   const event=currentEvent??nextEvent
 
