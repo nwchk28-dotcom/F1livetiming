@@ -56,10 +56,10 @@ it('renders sprint segment waiting until the full qualifying session is finalise
  const session:SessionState={...emptySession(),meetingName:event.meetingName,sessionName:'Sprint Qualifying',phase:'Q1',status:'FINISHED',qualifyingPartStarted:true}
  const props={schedule:[event],currentEvent:event,onSelectSession:()=>{}}
  const {rerender}=render(<ScheduleView {...props} session={session}/>)
- expect(screen.getByText('SQ1終了・SQ2開始待ち')).toBeTruthy()
+ expect(screen.getByText('速報中')).toBeTruthy()
  expect(screen.queryByText('終了')).toBeNull()
  rerender(<ScheduleView {...props} session={{...session,phase:'Q3'}}/>)
- expect(screen.getByText('SQ3 チェッカー・最終アタック中')).toBeTruthy()
+ expect(screen.getByText('速報中')).toBeTruthy()
  expect(screen.queryByText('終了')).toBeNull()
  rerender(<ScheduleView {...props} session={{...session,phase:'Q3',qualifyingFinalised:true}}/>)
  expect(screen.getByText('終了')).toBeTruthy()
@@ -78,4 +78,11 @@ it('only allows session navigation from the current GP schedule',()=>{
  fireEvent.click(screen.getByRole('button',{name:/GP 18/}))
  expect(screen.queryByRole('button',{name:'予選'})).toBeNull()
  expect(screen.queryByRole('button',{name:'決勝'})).toBeNull()
+})
+
+it('shows retained completed sessions as finished after the live feed changes',()=>{
+ vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-11T08:00:00Z'))
+ const event={...scheduledEvent(17,'2026-10-11T12:00:00Z'),sessions:[{name:'スプリント決勝',kind:'sprintRace' as const,start:'2026-10-10T09:00:00Z'}]}
+ render(<ScheduleView schedule={[event]} currentEvent={event} session={emptySession()} results={{sprintRace:{...emptySession(),sessionName:'Sprint',status:'FINISHED'}}} onSelectSession={()=>{}}/>)
+ expect(screen.getByText('終了')).toBeTruthy()
 })
