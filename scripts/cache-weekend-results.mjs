@@ -50,4 +50,4 @@ try{
    }catch(error){console.warn(`Archive unavailable for ${entry.Name}: ${error.message}`)}
   }
  }
-}finally{await rm(temporary,{recursive:true,force:true})}
+}catch(error){console.warn(`Official archive refresh unavailable; keeping bundled results: ${error.message}`)}finally{await rm(temporary,{recursive:true,force:true})}
