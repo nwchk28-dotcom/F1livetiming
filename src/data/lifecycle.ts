@@ -1,3 +1,4 @@
+import {weekendExpiry} from './weekendResults'
 import type { CompetitionState, OfficialRaceResult, RaceWeekend, SessionState } from '../types'
 
 export function competitionFromSession(session?:SessionState,event?:RaceWeekend,now=new Date()):CompetitionState{
@@ -31,7 +32,7 @@ export function selectNextEvent(schedule:RaceWeekend[],now=new Date()):RaceWeeke
 }
 
 export function selectCurrentEvent(schedule:RaceWeekend[],session?:SessionState,now=new Date()):RaceWeekend|undefined{
-  const time=now.getTime(),current=schedule.filter(e=>time>=Date.parse(e.sprintQualifyingStart??e.sprintStart??e.qualifyingStart)-3*60*60*1000&&time<Date.parse(e.raceStart)+48*60*60*1000)
+  const time=now.getTime(),current=schedule.filter(e=>time>=Date.parse(e.sprintQualifyingStart??e.sprintStart??e.qualifyingStart)-3*60*60*1000&&time<weekendExpiry(e))
   if(session?.meetingName){const target=normalise(session.meetingName);const exact=current.find(e=>normalise(e.meetingName).includes(target)||target.includes(normalise(e.meetingName)));if(exact)return exact}
   return current[0]
 }

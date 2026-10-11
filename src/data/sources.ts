@@ -1,3 +1,5 @@
+import {saveWeekendResult,resultKind} from './weekendResults'
+import type {ResultKind} from './weekendResults'
 import { isSprintQualifying, isSprintRace } from './sprint'
 import type { ArchiveSource, ConnectionState, DriverTiming, LiveTimingSource, OfficialRaceResult, RaceWeekend, ScheduleSource, SessionState, StandingEntry, StandingsSource } from '../types'
 
@@ -17,6 +19,28 @@ export class JolpicaDataSource implements StandingsSource,ScheduleSource{
 
 type F1Index={Meetings?:Array<{Name?:string;Sessions?:Array<{Name?:string;Path?:string}>}>}
 export class F1ArchiveSource implements ArchiveSource{
+  async loadWeekendSession(event:RaceWeekend,kind:ResultKind):Promise<SessionState|undefined>{
+    try{
+      const response=await fetch(`${import.meta.env.BASE_URL}archives/${event.season}/${event.round}/${kind}.json`,{cache:'no-store'})
+      if(response.ok){const saved=await response.json() as SessionState;const result=saveWeekendResult(event,saved)[kind];if(result)return result}
+    }catch{/* use official archives */}
+    const staticText=async(path:string)=>{
+      for(const base of [F1_STATIC,'https://livetiming.formula1.com/static']){
+        try{const response=await fetch(`${base}/${path}`,{cache:'no-store'});if(response.ok)return (await response.text()).replace(/^\uFEFF/,'')}catch{/* try next endpoint */}
+      }
+      throw new Error('Archive unavailable')
+    }
+    const index=JSON.parse(await staticText(`${event.season}/Index.json`)) as F1Index
+    const meeting=index.Meetings?.find(m=>normalise(m.Name??'')===normalise(event.meetingName))
+    const entry=meeting?.Sessions?.find(s=>resultKind({...emptySession(),sessionName:s.Name??''})===kind)
+    if(!entry?.Path)return undefined
+    let state={...emptySession(),meetingName:event.meetingName,circuit:event.circuit,sessionName:entry.Name??'',path:entry.Path}
+    const topics=['SessionInfo','DriverList','SessionData','ExtrapolatedClock','TimingData','TimingAppData','LapCount','TrackStatus']
+    const loaded=await Promise.allSettled(topics.map(async topic=>({topic,raw:await staticText(`${entry.Path}${topic}.jsonStream`)})))
+    for(const result of loaded)if(result.status==='fulfilled')for(const payload of parseStream(result.value.raw))state=mergeFeed(state,result.value.topic,payload) as typeof state
+    if((kind==='qualifying'||kind==='sprintQualifying')&&state.qualifyingFinalised)state={...state,qualifyingPartStarted:true}
+    return saveWeekendResult(event,state)[kind]
+  }
   async loadQualifying(event:RaceWeekend){try{const s=await this.findSession(event,'qualifying');if(s?.Path){const loaded=await this.loadSession(s.Path);if(loaded?.drivers.length)return loaded}}catch{/* use results API */}return this.loadQualifyingResults(event)}
   async loadGrid(event:RaceWeekend):Promise<Record<string,number>>{
     const [timing,starting]=await Promise.allSettled([this.loadTimingGrid(event),this.loadStartingGrid(event)])
@@ -54,7 +78,7 @@ export class F1ArchiveSource implements ArchiveSource{
   }
   async loadRaceResults(event:RaceWeekend):Promise<OfficialRaceResult[]>{type Result={number:string;position:string;grid:string;laps:string;status:string;points:string;Time?:{millis?:string;time?:string};FastestLap?:{Time?:{time?:string}}};type R={MRData:{RaceTable:{Races:Array<{Results:Result[]}>}}};try{const json=await cachedJson<R>(`f1-race-results-${event.season}-${event.round}`,`${API}/${event.season}/${event.round}/results.json`,60*1000),rows=json.MRData.RaceTable.Races[0]?.Results??[];return rows.map((r,index)=>{const previous=rows[index-1],laps=+r.laps,previousLaps=+(previous?.laps??r.laps),millis=+(r.Time?.millis??NaN),previousMillis=+(previous?.Time?.millis??NaN),interval=index===0?'—':previousLaps>laps?`${previousLaps-laps} LAP`:Number.isFinite(millis)&&Number.isFinite(previousMillis)?`+${((millis-previousMillis)/1000).toFixed(3)}`:'—';return{number:r.number,position:+r.position,gridPosition:+r.grid,status:/retired|disqualified|not classified/i.test(r.status)?'OUT':'FINISHED',gap:r.Time?.time??r.status,interval,points:+r.points,bestLap:r.FastestLap?.Time?.time}})}catch{return[]}}
   private async findSession(event:RaceWeekend,kind:'qualifying'|'race',fresh=false){const index=await cachedJson<F1Index>(`f1-static-${event.season}`,`${F1_STATIC}/${event.season}/Index.json`,fresh?0:60*60*1000);const m=index.Meetings?.find(x=>normalise(x.Name??'').includes(normalise(event.meetingName))||normalise(event.meetingName).includes(normalise(x.Name??'')));return m?.Sessions?.find(s=>kind==='qualifying'?(s.Name??'').toLowerCase()==='qualifying':(s.Name??'').toLowerCase()==='race')}
-private async loadSession(path:string){let state=emptySession();state.path=path;state.sessionName='Qualifying';state.status='FINISHED';state.phase='Q3';const results=await Promise.allSettled(['DriverList','TimingData','ExtrapolatedClock','SessionData'].map(topic=>fetch(`${F1_STATIC}/${path}${topic}.jsonStream`).then(checkText).then(raw=>({topic,raw}))));for(const result of results)if(result.status==='fulfilled')for(const payload of parseStream(result.value.raw))state=mergeFeed(state,result.value.topic,payload);if(!state.qualifyingFinalised)return undefined;state.status='FINISHED';state.phase='Q3';state.drivers=state.drivers.filter(d=>d.position<99).sort((a,b)=>a.position-b.position).map(d=>({...d,status:'FINISHED' as const}));return state}
+private async loadSession(path:string){let state=emptySession();state.path=path;state.sessionName='Qualifying';state.status='FINISHED';state.phase='Q3';const results=await Promise.allSettled(['DriverList','SessionData','ExtrapolatedClock','TimingData'].map(topic=>fetch(`${F1_STATIC}/${path}${topic}.jsonStream`).then(checkText).then(raw=>({topic,raw}))));for(const result of results)if(result.status==='fulfilled')for(const payload of parseStream(result.value.raw))state=mergeFeed(state,result.value.topic,payload);if(!state.qualifyingFinalised)return undefined;state.qualifyingPartStarted=true;state.status='FINISHED';state.phase='Q3';state.drivers=state.drivers.filter(d=>d.position<99).sort((a,b)=>a.position-b.position).map(d=>({...d,status:'FINISHED' as const}));return state}
   private async loadQualifyingResults(event:RaceWeekend){type Result={number:string;position:string;Q1?:string;Q2?:string;Q3?:string;Driver:{code?:string;givenName:string;familyName:string};Constructor:{name:string}};type R={MRData:{RaceTable:{Races:Array<{QualifyingResults:Result[]}>}}};const json=await cachedJson<R>(`f1-qualifying-${event.season}-${event.round}`,`${API}/${event.season}/${event.round}/qualifying.json`,30*1000),results=json.MRData.RaceTable.Races[0]?.QualifyingResults??[];if(!results.length)return undefined;return{...emptySession(),meetingName:event.meetingName,circuit:event.circuit,sessionName:'Qualifying',phase:'Q3' as const,status:'FINISHED' as const,drivers:results.map(r=>({...emptyDriver(r.number),status:'FINISHED' as const,position:+r.position,previousPosition:+r.position,gridPosition:+r.position,code:r.Driver.code??r.Driver.familyName.slice(0,3).toUpperCase(),fullName:`${r.Driver.givenName} ${r.Driver.familyName}`,team:r.Constructor.name,teamColor:teamColor(r.Constructor.name),bestLap:r.Q3??r.Q2??r.Q1??'—'}))}}
 }
 

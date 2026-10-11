@@ -1,9 +1,10 @@
-import {afterEach,expect,it,vi} from 'vitest'
+import {afterEach,beforeEach,expect,it,vi} from 'vitest'
 import {act,cleanup,fireEvent,render,screen,within} from '@testing-library/react'
 import App from './App'
 import {emptySession,F1ArchiveSource,F1SignalRSource,JolpicaDataSource,mergeFeed} from './data/sources'
 
 const event={season:2026,round:4,meetingName:'Bahrain Grand Prix',circuit:'Sakhir',locality:'Sakhir',country:'Bahrain',qualifyingStart:'2026-04-11T16:00:00Z',raceStart:'2026-04-12T15:00:00Z',timeZone:'Asia/Bahrain'}
+beforeEach(()=>{vi.spyOn(F1ArchiveSource.prototype,'loadWeekendSession').mockResolvedValue(undefined)})
 afterEach(()=>{cleanup();vi.restoreAllMocks();vi.useRealTimers();localStorage.clear()})
 
 it('automatically updates a published penalty grid while qualifying retrieval is pending',async()=>{
