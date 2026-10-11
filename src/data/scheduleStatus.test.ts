@@ -74,7 +74,7 @@ it.each(['Qualifying','Sprint Qualifying','Sprint Shootout'])('ends %s after the
 it.each(['qualifying','sprintQualifying','race','sprintRace','practice'] as const)('shows elapsed start without a start signal for %s',kind=>{
  const name={qualifying:'Qualifying',sprintQualifying:'Sprint Qualifying',race:'Race',sprintRace:'Sprint',practice:'Practice 1'}[kind]
  const row:WeekendSession={kind,name:kind==='practice'?'フリー走行1':kind,start}
- const session={...emptySession(),sessionName:name,phase:'Q1',status:'INACTIVE' as const,qualifyingPartStarted:false}
+ const session:SessionState={...emptySession(),sessionName:name,phase:'Q1',status:'INACTIVE' as const,qualifyingPartStarted:false}
  expect(scheduleSessionStatus(row,session,true,now)).toBe('開始時刻経過')
  expect(scheduleSessionStatus({...row,start:'2026-10-10T12:30:00Z'},session,true,now)).toBe('開始前')
 })
