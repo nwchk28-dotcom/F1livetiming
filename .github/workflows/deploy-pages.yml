@@ -35,6 +35,8 @@ jobs:
         run: npm test
       - name: Cache completed weekend results
         run: node scripts/cache-weekend-results.mjs
+      - name: Cache confirmed schedule status
+        run: node scripts/cache-schedule-completion.mjs
       - name: Build
         run: npm run build
       - name: Upload Pages artifact

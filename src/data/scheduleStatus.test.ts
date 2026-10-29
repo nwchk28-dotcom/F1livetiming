@@ -34,7 +34,7 @@ it.each([['race','Race'],['sprintRace','Sprint'],['practice','Practice 1']] as c
  expect(scheduleSessionStatus(row,session,true,now)).toBe('速報中')
  expect(scheduleSessionStatus(row,{...session,status:'STARTED'},true,now)).toBe('速報中')
  expect(scheduleSessionStatus(row,{...session,status:'FINISHED'},true,now)).toBe('終了')
- expect(scheduleSessionStatus(row,{...session,status:'INACTIVE'},true,now)).toBe('開始時刻経過')
+ expect(scheduleSessionStatus(row,{...session,status:'INACTIVE'},true,now)).toBe('開始時刻経過・状態未確認')
 })
 it('does not apply the current feed to another GP or session',()=>{
  const session:SessionState={...emptySession(),sessionName:'Sprint Qualifying',phase:'Q1',status:'FINISHED'}
@@ -75,6 +75,6 @@ it.each(['qualifying','sprintQualifying','race','sprintRace','practice'] as cons
  const name={qualifying:'Qualifying',sprintQualifying:'Sprint Qualifying',race:'Race',sprintRace:'Sprint',practice:'Practice 1'}[kind]
  const row:WeekendSession={kind,name:kind==='practice'?'フリー走行1':kind,start}
  const session:SessionState={...emptySession(),sessionName:name,phase:'Q1',status:'INACTIVE' as const,qualifyingPartStarted:false}
- expect(scheduleSessionStatus(row,session,true,now)).toBe('開始時刻経過')
+ expect(scheduleSessionStatus(row,session,true,now)).toBe('開始時刻経過・状態未確認')
  expect(scheduleSessionStatus({...row,start:'2026-10-10T12:30:00Z'},session,true,now)).toBe('開始前')
 })

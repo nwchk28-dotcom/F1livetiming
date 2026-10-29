@@ -1,3 +1,4 @@
+import {loadCompletion,readCompletion,recordSessionCompletion,sessionKey,type Completion} from './data/scheduleCompletion'
 import { useEffect,useLayoutEffect,useRef,useState } from 'react'
 import type {WeekendResults} from './data/weekendResults'
 import {scheduleSessionStatus} from './data/scheduleStatus'
@@ -29,6 +30,20 @@ export function ScheduleView({schedule,currentEvent,session,results={},onSelectS
     return()=>observer.disconnect()
   },[selectedKey])
   const rows:WeekendSession[]=event?.sessions??(event?[{name:'予選',start:event.qualifyingStart,kind:'qualifying'},{name:'決勝',start:event.raceStart,kind:'race'}]:[])
+  const [completion,setCompletion]=useState<{key:string;value:Completion}>()
+  useEffect(()=>{
+    if(!event)return
+    let active=true
+    const selectedEvent=event,selectedEventKey=key(event)
+    setCompletion({key:selectedEventKey,value:readCompletion(selectedEvent)})
+    const load=()=>{void loadCompletion(selectedEvent).then(value=>{if(active)setCompletion({key:selectedEventKey,value})})}
+    load()
+    const timer=window.setInterval(load,60000)
+    return()=>{active=false;window.clearInterval(timer)}
+  },[selectedKey])
+  useEffect(()=>{
+    if(event)setCompletion({key:key(event),value:recordSessionCompletion(event,session)})
+  },[selectedKey,session])
   const sameEvent=event&&session.meetingName.toLowerCase().replace(/grand prix|[^a-z0-9]/g,'')===event.meetingName.toLowerCase().replace(/grand prix|[^a-z0-9]/g,'')
-  return <section className="page-view schedule-view"><div className="section-head"><div><small>RACE WEEKEND SCHEDULE · JST</small><h1>レースウィーク日程</h1></div><span>日本時間（Asia/Tokyo）</span></div><div ref={pickerRef} className="weekend-picker" aria-label="グランプリを選択">{schedule.map(e=><button ref={selectedKey===key(e)?selectedButtonRef:undefined} key={key(e)} aria-pressed={event&&key(event)===key(e)} onClick={()=>{setSelected(key(e));setNow(Date.now())}}><small>第{e.round}戦 {Date.parse(e.raceStart)>now?'開催予定':'開催済み'}</small><strong>{e.meetingName}</strong></button>)}</div>{event?<><h2>第{event.round}戦 {event.meetingName}</h2><p>{event.circuit} · {event.country}</p><div className="table-wrap"><table className="timing-table schedule-table"><thead><tr><th scope="col">日時（日本時間）</th><th scope="col">内容</th></tr></thead><tbody>{[...rows].sort((a,b)=>Date.parse(a.start??event.raceStart)-Date.parse(b.start??event.raceStart)).map(row=>{const isCurrent=Boolean(currentEvent&&event.season===currentEvent.season&&event.round===currentEvent.round);const result=row.kind==='practice'?undefined:results[row.kind];const status=scheduleSessionStatus(row,isCurrent&&result?result:session,isCurrent&&result?true:Boolean(sameEvent),now);return <tr key={row.kind+row.name}><td>{row.start?new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(row.start)):'未発表'}</td><td><span className="driver-status">{status}</span> {row.kind==='practice'||!currentEvent||event.season!==currentEvent.season||event.round!==currentEvent.round?<strong>{row.name}</strong>:<button className="schedule-session" onClick={()=>onSelectSession(row.kind as View)}>{row.name}</button>}</td></tr>})}</tbody></table></div></>:<p>日程を取得しています。</p>}</section>
+  return <section className="page-view schedule-view"><div className="section-head"><div><small>RACE WEEKEND SCHEDULE · JST</small><h1>レースウィーク日程</h1></div><span>日本時間（Asia/Tokyo）</span></div><div ref={pickerRef} className="weekend-picker" aria-label="グランプリを選択">{schedule.map(e=><button ref={selectedKey===key(e)?selectedButtonRef:undefined} key={key(e)} aria-pressed={event&&key(event)===key(e)} onClick={()=>{setSelected(key(e));setNow(Date.now())}}><small>第{e.round}戦 {Date.parse(e.raceStart)>now?'開催予定':'開催済み'}</small><strong>{e.meetingName}</strong></button>)}</div>{event?<><h2>第{event.round}戦 {event.meetingName}</h2><p>{event.circuit} · {event.country}</p><div className="table-wrap"><table className="timing-table schedule-table"><thead><tr><th scope="col">日時（日本時間）</th><th scope="col">内容</th></tr></thead><tbody>{[...rows].sort((a,b)=>Date.parse(a.start??event.raceStart)-Date.parse(b.start??event.raceStart)).map(row=>{const isCurrent=Boolean(currentEvent&&event.season===currentEvent.season&&event.round===currentEvent.round);const result=row.kind==='practice'?undefined:results[row.kind];const status=scheduleSessionStatus(row,isCurrent&&result?result:session,isCurrent&&result?true:Boolean(sameEvent),now,Boolean(completion?.key===selectedKey&&completion?.value[sessionKey(row)]));return <tr key={row.kind+row.name}><td>{row.start?new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(row.start)):'未発表'}</td><td><span className="driver-status">{status}</span> {row.kind==='practice'||!currentEvent||event.season!==currentEvent.season||event.round!==currentEvent.round?<strong>{row.name}</strong>:<button className="schedule-session" onClick={()=>onSelectSession(row.kind as View)}>{row.name}</button>}</td></tr>})}</tbody></table></div></>:<p>日程を取得しています。</p>}</section>
 }

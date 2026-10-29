@@ -86,3 +86,12 @@ it('shows retained completed sessions as finished after the live feed changes',(
  render(<ScheduleView schedule={[event]} currentEvent={event} session={emptySession()} results={{sprintRace:{...emptySession(),sessionName:'Sprint',status:'FINISHED'}}} onSelectSession={()=>{}}/>)
  expect(screen.getByText('終了')).toBeTruthy()
 })
+
+it('uses durable completion for a selected past GP after results expire',()=>{
+ vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-29T08:00:00Z'))
+ const past={...scheduledEvent(1,'2026-03-02T10:00:00Z'),sessions:[{name:'フリー走行1',kind:'practice' as const,start:'2026-02-28T10:00:00Z'}]}
+ localStorage.setItem('f1-schedule-completion-v1-2026-1',JSON.stringify({practice1:true}))
+ render(<ScheduleView schedule={[past]} session={emptySession()} onSelectSession={()=>{}}/>)
+ expect(screen.getByText('終了')).toBeTruthy()
+ localStorage.removeItem('f1-schedule-completion-v1-2026-1')
+})

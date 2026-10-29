@@ -1,3 +1,4 @@
+import {recordSessionCompletion} from './data/scheduleCompletion'
 import { useCallback,useEffect,useMemo,useState } from 'react'
 import type { ReactNode } from 'react'
 import { Activity,AlertTriangle,CalendarClock,Flag,Gauge,Radio,RefreshCw,Trophy,Wifi,WifiOff } from 'lucide-react'
@@ -60,6 +61,7 @@ export default function App(){
   },[currentEventKey,reconnectKey])
   useEffect(()=>{
     if(!currentEvent||!currentEventKey)return
+    recordSessionCompletion(currentEvent,session)
     const results=saveWeekendResult(currentEvent,session)
     if(resultKind(session)&&results[resultKind(session)!])setWeekendRecord({key:currentEventKey,results})
   },[currentEventKey,session])

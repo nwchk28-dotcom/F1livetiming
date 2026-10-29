@@ -2,7 +2,8 @@ import type {SessionState,WeekendSession} from '../types'
 import {hasQualifyingEnded} from './lifecycle'
 
 /** Finished can mean a qualifying segment has ended, not the whole session. */
-export function scheduleSessionStatus(row:WeekendSession,session:SessionState,sameEvent:boolean,now:number):string {
+export function scheduleSessionStatus(row:WeekendSession,session:SessionState,sameEvent:boolean,now:number,completed=false):string {
+  if(completed)return '終了'
   const names:Partial<Record<WeekendSession['kind'],string[]>>={
     qualifying:['qualifying'],race:['race'],
     sprintQualifying:['sprint qualifying','sprint shootout'],sprintRace:['sprint','sprint race'],
@@ -20,5 +21,5 @@ export function scheduleSessionStatus(row:WeekendSession,session:SessionState,sa
     }
   }
   if(!row.start)return '時刻未発表'
-  return Date.parse(row.start)>now?'開始前':'開始時刻経過'
+  return Date.parse(row.start)>now?'開始前':'開始時刻経過・状態未確認'
 }
